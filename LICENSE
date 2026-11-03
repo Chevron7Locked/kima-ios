@@ -1,0 +1,15 @@
+Copyright (c) 2026 Kevin O'Neill. All rights reserved.
+
+This repository is published so that anyone can read the source code of Kima for iOS and check
+what the app does. Publishing it does not grant a licence.
+
+You may view the source code, and fork it on GitHub only as far as GitHub's Terms of Service
+require. You may not copy, modify, distribute, sublicense, sell, or use this code or any part of
+it — in other apps, services or products — without the copyright holder's written permission.
+
+The Kima name and logo are not licensed for any use.
+
+Kima for iOS is a client for Kima, a separate project licensed under GPL-3.0:
+https://github.com/Chevron7Locked/kima-hub. This notice covers only the code in this repository.
+Third-party fonts bundled with the app are licensed separately under the SIL Open Font License
+1.1; their licence texts are in Kima/Resources/Fonts/.

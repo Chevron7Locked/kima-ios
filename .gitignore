@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.hmap
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# The Xcode project is generated from project.yml — run `xcodegen generate`
+Kima.xcodeproj/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Editor language-server config (generated locally)
+buildServer.json
+
+# code-cleanup scan output (regenerate with scan.py)
+.cleanup-scan/
+__pycache__/
+
+# agent working artifacts (probe logs/screenshots, tool state, generated reviews)
+.probe/
+.claude/
+.serena/
+docs/reviews/

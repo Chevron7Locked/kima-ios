@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  CarPlay Audio entitlement. For the Simulator's CarPlay external display this local
+  entitlement is honored WITHOUT Apple's approval / a provisioning profile. A real head
+  unit + App Store/TestFlight distribution require the formally-granted entitlement
+  (request via Apple's CarPlay entitlement form).
+-->
+<plist version="1.0">
+<dict>
+    <!-- Disabled for device/TestFlight builds: this is a restricted entitlement that blocks
+         signing until Apple grants the CarPlay request. Simulator CarPlay does not need this line.
+
+         Status verified 2026-10-12: the key has been commented out since the CarPlay code landed
+         (commit d949938), while Info.plist still registers the CarPlay scene role and 15 files in
+         Kima/CarPlay/ compile into every build. The interface is finished; only the grant is
+         missing. Two coherent end states: file Apple's CarPlay entitlement request and re-enable
+         this key, or drop the scene role from Info.plist until the grant arrives. Leaving it as it
+         is means the app declares CarPlay support it cannot deliver on a head unit. -->
+    <key>com.apple.developer.carplay-audio</key>
+    <true/>
+    -->
+</dict>
+</plist>

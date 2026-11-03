@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Lets the app's own animations and the vibe map run at the display's full 120 Hz on iPhone, not 60. -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.chevron7locked.kima</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kima</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- Cleartext is allowed only for the host shapes Kima's own connect flow produces over
+		     plain http: IPv4 and IPv6 literals, *.local, and single-label names (see
+		     ConnectViewModel.isLocalHost). Those are exactly the four categories Apple documents
+		     NSAllowsLocalNetworking as covering (unqualified domains, .local domains, IPv4/IPv6
+		     addresses), so nothing the app supports by default loses connectivity. Apple ignores
+		     NSAllowsArbitraryLoads once a narrower key is present, so it is stated false here
+		     rather than dropped: public hosts get ATS's normal TLS requirements. -->
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Kima connects to your own Kima server, which usually lives on your local network.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>BricolageGrotesque-Regular.ttf</string>
+	<string>BricolageGrotesque-Medium.ttf</string>
+	<string>BricolageGrotesque-SemiBold.ttf</string>
+	<string>BricolageGrotesque-Bold.ttf</string>
+	<string>Montserrat-Regular.ttf</string>
+	<string>Montserrat-Medium.ttf</string>
+	<string>Montserrat-SemiBold.ttf</string>
+	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>KimaCarPlay</string>
+					<key>UISceneDelegateClassName</key>
+					<string>KimaCarPlaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.json</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Kima track</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.chevron7locked.kima.track</string>
+		</dict>
+	</array>
+</dict>
+</plist>

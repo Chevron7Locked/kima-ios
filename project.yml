@@ -1,0 +1,112 @@
+# XcodeGen spec — the human-readable source of truth for the Xcode project.
+# Regenerate the .xcodeproj any time with:  xcodegen generate
+name: Kima
+options:
+  xcodeVersion: "2700"          # Xcode 27.0 -> LastUpgradeCheck, silences "Update to recommended settings"
+  bundleIdPrefix: com.chevron7locked
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"          # language mode; toolchain is Swift 6.3. Raise to 6.0 later.
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "16"
+    # Real signing via the operator's Apple Developer account (Team 5V34ASRP8G). Automatic signing
+    # gives a genuine application-identifier entitlement on BOTH device and Simulator (so the old
+    # ad-hoc "-" Keychain workaround is no longer needed). For device/TestFlight the CarPlay
+    # entitlement must stay disabled until Apple grants it — see docs/plan/device-build.md.
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 5V34ASRP8G
+    # Xcode 27 new-project defaults.
+    ENABLE_USER_SCRIPT_SANDBOXING: "YES"
+    ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: "YES"
+    LOCALIZATION_PREFERS_STRING_CATALOGS: "YES"
+    SWIFT_EMIT_LOC_STRINGS: "YES"
+    STRING_CATALOG_GENERATE_SYMBOLS: "YES"
+
+targets:
+  Kima:
+    type: application
+    platform: iOS
+    sources:
+      - Kima
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevron7locked.kima
+        PRODUCT_NAME: Kima
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon   # real Kima icon from Assets.xcassets
+        # Brand amber (KimaColor.brand) as the app accent: any control no view tints falls back to it, never system blue.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SDKROOT: iphoneos
+        SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"   # build for device AND simulator
+        GENERATE_INFOPLIST_FILE: "YES"        # Xcode synthesizes Info.plist from these keys
+        # UILaunchScreen_Generation disabled — an explicit UILaunchScreen dict in Info.plist
+        # sets the launch canvas to LaunchBackground (#020104, the app base) so there is no white flash.
+        # INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        # Scene-manifest generation OFF — we ship an explicit UIApplicationSceneManifest in the
+        # partial Info.plist that adds the CarPlay scene (CPTemplateApplicationScene) alongside
+        # SwiftUI's default window scene. Xcode's synthesized single-window manifest would omit it.
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "NO"
+        # CarPlay Audio entitlement (Simulator-honored locally; real head unit needs Apple's grant).
+        CODE_SIGN_ENTITLEMENTS: Kima/Kima.entitlements
+        # Export compliance: standard OS HTTPS/TLS only — EAR Supplement No. 1 Cat 5 Pt 2 exempt.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        # UIBackgroundModes (audio) is the whole reason for native: real background audio.
+        # Xcode 26 does NOT synthesize the array key from INFOPLIST_KEY_UIBackgroundModes, so it
+        # lives in a partial Info.plist that GENERATE_INFOPLIST_FILE merges the synthesized keys into.
+        INFOPLIST_FILE: Kima/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Kima
+        TARGETED_DEVICE_FAMILY: "1,2"            # iPhone + iPad
+        # Orientations: iPhone is portrait only. iPad turns to all four and takes part in Split View and
+        # Stage Manager (a narrow window gets the iPhone tab layout). Set via INFOPLIST_KEY_ (not the partial
+        # Info.plist) because GENERATE_INFOPLIST_FILE owns/overwrites the plain UISupportedInterfaceOrientations.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+
+  # Unit tests (hand-written JSON fixtures, pure logic), hosted in the app so `@testable import Kima` works.
+  KimaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - KimaTests
+    dependencies:
+      - target: Kima
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevron7locked.kimaTests
+        GENERATE_INFOPLIST_FILE: "YES"
+        SWIFT_VERSION: "5.0"
+
+  # E2E UI tests — the reliable simulator-input path (drives the guest via the
+  # accessibility daemon; synthetic CGEvents to the DeviceKit viewer do not land).
+  KimaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - KimaUITests
+    dependencies:
+      - target: Kima
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chevron7locked.kimaUITests
+        GENERATE_INFOPLIST_FILE: "YES"
+        TEST_TARGET_NAME: Kima
+        STRING_CATALOG_GENERATE_SYMBOLS: "NO"   # Xcode's UI-test template default
+        SWIFT_VERSION: "5.0"
+
+# Explicit Kima scheme so the unit-test target is in the test action.
+schemes:
+  Kima:
+    build:
+      targets:
+        Kima: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: KimaTests
+        - name: KimaUITests

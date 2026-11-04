@@ -3,6 +3,19 @@ import simd
 @testable import Kima
 
 final class VibeOrbitCameraTests: XCTestCase {
+    func testViewNeverFlipsWhenOrbitingAtThePolarLimit() {
+        // Float rounding at the exact pole flipped the screen's right axis between frames.
+        let target = SIMD3<Float>(1.3, -0.7, 2.1), distance: Float = 30, phi = VibeOrbitCamera.polarEpsilon
+        var previous: SIMD3<Float>?
+        for i in 0..<20_000 {
+            let theta = Float(i) * 0.0005
+            let position = target + distance * SIMD3(sin(phi) * sin(theta), cos(phi), sin(phi) * cos(theta))
+            let right = VibeOrbitCamera.rightAxis(forward: simd_normalize(target - position))
+            if let previous { XCTAssertGreaterThan(simd_dot(previous, right), 0.99, "step \(i)") }
+            previous = right
+        }
+    }
+
     private func makeField() -> VibeField { VibeField(tracks: VibeSyntheticMap.tracks()) }
 
     private func camera(aspect: Float, field: VibeField) -> VibeOrbitCamera {

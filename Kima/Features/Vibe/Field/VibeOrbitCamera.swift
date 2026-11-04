@@ -11,7 +11,7 @@ struct VibeOrbitCamera {
     static let damping: Float = 0.08
     static let rotateSpeed: Float = 0.55
     static let zoomSpeed: Float = 0.9
-    static let polarEpsilon: Float = 1e-6
+    static let polarEpsilon: Float = 0.01
     var target: SIMD3<Float>
     var distance: Float
     var theta: Float

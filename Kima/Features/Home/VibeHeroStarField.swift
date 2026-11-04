@@ -68,8 +68,8 @@ struct VibeHeroStarField: View {
     }
 
     @Environment(\.scenePhase) private var scenePhase
-    /// Orion placed for the last card size, so a frame does not recompute it.
-    @State private var orion: (size: CGSize, stars: [(CGPoint, Star)], box: CGRect)?
+    /// Orion placed for the last size drawn, so a frame does not recompute it.
+    @State private var orion = OrionPlacement()
 
     /// Still when Reduce Motion or Low Power Mode is on, or the app is not in front.
     private var isStill: Bool {
@@ -87,16 +87,8 @@ struct VibeHeroStarField: View {
                 }
             }
         }
-        .onGeometryChange(for: CGSize.self, of: \.size) { placeOrion(in: $0) }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-
-    private func placeOrion(in size: CGSize) {
-        guard orion?.size != size, size.width > 0 else { return }
-        let stars = Array(Self.orionStars(in: size).values)
-        let box = stars.map { CGRect(origin: $0.0, size: .zero) }.reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -6, dy: -6)
-        orion = (size, stars, box)
     }
 
     /// Brightness at time `t`; a still frame (nil) shows every star at full brightness.
@@ -106,24 +98,40 @@ struct VibeHeroStarField: View {
     }
 
     private func draw(_ ctx: inout GraphicsContext, size: CGSize, t: Double?) {
-        let o = orion?.size == size ? orion : nil
+        let (orionStars, orionBox) = orion.placed(in: size)
         // Stars over the text band are dimmed so the label keeps its contrast.
         func textBand(_ p: CGPoint) -> Double { p.y > size.height * 0.55 ? 0.4 : 1.0 }
         for s in Self.field {
             let p = CGPoint(x: s.x * size.width, y: s.y * size.height)
             // Keep Orion's patch clear of faint field stars so the figure reads.
-            if let o, o.box.contains(p) && s.radius < 1.1 { continue }
+            if orionBox.contains(p) && s.radius < 1.1 { continue }
             let r = s.radius
             ctx.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)),
                      with: .color(s.tint.opacity(s.opacity * textBand(p) * twinkle(s, t))))
         }
-        for (p, s) in o?.stars ?? [] {
+        for (p, s) in orionStars {
             let r = s.radius
             ctx.fill(Path(ellipseIn: CGRect(x: p.x - 2.2 * r, y: p.y - 2.2 * r, width: 4.4 * r, height: 4.4 * r)),
                      with: .color(s.tint.opacity(0.07 * textBand(p))))
             ctx.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)),
                      with: .color(s.tint.opacity(s.opacity * textBand(p) * twinkle(s, t))))
         }
+    }
+}
+
+/// Orion's stars for a card size and the box around them, kept until the size changes.
+private final class OrionPlacement {
+    private var size: CGSize?
+    private var stars: [(CGPoint, VibeHeroStarField.Star)] = []
+    private var box = CGRect.null
+
+    func placed(in size: CGSize) -> (stars: [(CGPoint, VibeHeroStarField.Star)], box: CGRect) {
+        if self.size != size {
+            self.size = size
+            stars = Array(VibeHeroStarField.orionStars(in: size).values)
+            box = stars.map { CGRect(origin: $0.0, size: .zero) }.reduce(CGRect.null) { $0.union($1) }.insetBy(dx: -6, dy: -6)
+        }
+        return (stars, box)
     }
 }
 

@@ -85,55 +85,6 @@ final class VibeChartTests: XCTestCase {
     private var goals: [Float] { [Float](repeating: 1, count: 8) }
     private var moods: [Float] { [Float](repeating: -1, count: 8) }
 
-    private func build(_ ids: [String], playing: String? = "s2") -> [VibeChartDot] {
-        VibeChart.buildQueue(ids: ids, playingId: playing, selectedId: nil, operationSourceId: nil,
-                             indexById: index, positions: positions, sizes: sizes,
-                             goals: goals, moods: moods, baseSize: 2.4)
-    }
-
-    func testDotsStepAlongSegments() {
-        // Six songs; playing at s2 → three segments ahead, two behind, one dot per segment.
-        let dots = build(["s0", "s1", "s2", "s3", "s4", "s5"])
-        XCTAssertEqual(dots.count, 5)
-        // The first ahead dot sits mid-segment between s2 and s3.
-        XCTAssertEqual(dots[0].posAlpha.x, 2.5, accuracy: 1e-5)
-        // Songs ahead of the playing one run at full near strength.
-        XCTAssertEqual(dots[0].posAlpha.w, VibeMapStyle.chartAlphaNear, accuracy: 1e-6)
-    }
-
-    func testPlayedDotsAreThin() {
-        let dots = build(["s0", "s1", "s2", "s3"])
-        let played = dots.filter { $0.posAlpha.x < 2 }.map(\.posAlpha.w).sorted()
-        let expected: [Float] = [0.2 * (1 + (-1.0) / 3.0), 0.2 * (1 + 0.0 / 3.0)]
-        XCTAssertEqual(played.count, 2)
-        for (a, b) in zip(played, expected) { XCTAssertEqual(a, b, accuracy: 1e-6) }
-    }
-
-    func testFarAheadDotsFadeOut() {
-        // 70 songs: 60 ahead segments, the last at the web's far alpha ~0.149.
-        let pos: [SIMD3<Float>] = (0..<70).map { SIMD3(Float($0), 0, 0) }
-        let idx = Dictionary(uniqueKeysWithValues: (0..<70).map { ("s\($0)", $0) })
-        let dots = VibeChart.buildQueue(ids: (0..<70).map { "s\($0)" }, playingId: "s0",
-                                        selectedId: nil, operationSourceId: nil,
-                                        indexById: idx, positions: pos,
-                                        sizes: [Float](repeating: 1, count: 70),
-                                        goals: [Float](repeating: 1, count: 70),
-                                        moods: [Float](repeating: -1, count: 70), baseSize: 2.4)
-        XCTAssertEqual(dots.count, 60)
-        let far = dots.map(\.posAlpha.w).min() ?? 0
-        XCTAssertEqual(far, VibeMapStyle.chartAlphaNear
-         + (VibeMapStyle.chartAlphaFar - VibeMapStyle.chartAlphaNear) * 51 / 52, accuracy: 1e-4)
-    }
-
-    func testNothingPlayingDrawsAllAhead() {
-        let dots = build(["s0", "s1"], playing: nil)
-        XCTAssertEqual(dots.count, 1)
-    }
-
-    func testFewerThanTwoSongsDrawNothing() {
-        XCTAssertTrue(build(["s0", "gone"]).isEmpty)
-    }
-
     func testPathChordIsStarlightAndFaint() {
         let dots = VibeChart.buildPathChord(startId: "s0", endId: "s1", indexById: index,
                                             positions: positions, sizes: sizes, goals: goals,
@@ -143,10 +94,23 @@ final class VibeChartTests: XCTestCase {
     }
 
     func testDotsStopShortOfStarDiscs() {
-        // Dots at the segment ends belong to the near star; the clear radius is the queued gap + 3.
-        let dots = build(["s0", "s1"], playing: "s0")
+        let dots = VibeChart.buildPathChord(startId: "s0", endId: "s1", indexById: index,
+                                            positions: positions, sizes: sizes, goals: goals,
+                                            moods: moods, baseSize: 2.4)
         XCTAssertEqual(dots[0].endPosClear.x, 0)          // nearer end wins
-        XCTAssertEqual(dots[0].endPosClear.w, VibeMapStyle.chartClearPlaying, accuracy: 1e-6)
+        XCTAssertEqual(dots[0].endPosClear.w, VibeMapStyle.chartClearSelected, accuracy: 1e-6)
+    }
+
+    func testALongChordStaysAttachedToBothStars() {
+        // Ends 100 units apart, far past the reach: dots leave each star and none float in the gap.
+        let ends: [SIMD3<Float>] = [SIMD3(0, 0, 0), SIMD3(100, 0, 0)]
+        let dots = VibeChart.buildPathChord(startId: "a", endId: "b", indexById: ["a": 0, "b": 1],
+                                            positions: ends, sizes: [1, 1], goals: [1, 1], moods: [-1, -1],
+                                            baseSize: 2.4)
+        XCTAssertFalse(dots.isEmpty)
+        XCTAssertEqual(dots.map(\.posAlpha.x).min() ?? 0, 0.36, accuracy: 0.01)
+        XCTAssertEqual(dots.map(\.posAlpha.x).max() ?? 0, 99.64, accuracy: 1e-1)
+        XCTAssertTrue(dots.allSatisfy { min($0.posAlpha.x, 100 - $0.posAlpha.x) < 4 * VibeMapStyle.chartReach })
     }
 }
 

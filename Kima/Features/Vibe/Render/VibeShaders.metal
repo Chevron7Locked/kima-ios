@@ -201,9 +201,9 @@ fragment float4 sky_fragment(SkyOut in [[stage_in]], float2 pc [[point_coord]],
     return starShade(pc, in.position, in.sizePx, in.tw, 1.0, 1.0, in.colour, u);
 }
 
-// MARK: Chart dots (the queue's constellation stipple, port of the web's queueChart)
+// MARK: Chart dots (the song path's row of dots)
 //
-// Swift built the dots along the queue's segments (VibeChart.build). Here a dot is culled when zoomed
+// Swift built the dots out from the path's two ends (VibeChart). Here a dot is culled when zoomed
 // out (level < need), when it sits inside the end star's disc plus clearance, and brightened in turn
 // along the line by the glint. Dots are 1.5 pt round points; alpha carries the along-line fade.
 

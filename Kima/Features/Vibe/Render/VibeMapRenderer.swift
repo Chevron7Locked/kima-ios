@@ -186,8 +186,7 @@ final class VibeMapRenderer: NSObject, MTKViewDelegate {
         if old == nil || old?.mapGeneration != new.mapGeneration { sceneStale = true }
         if old?.highlightedIds != new.highlightedIds || old?.selectedId != new.selectedId
             || old?.playingId != new.playingId { goalsDirty = true }
-        if old?.queueIds != new.queueIds || old?.playingId != new.playingId
-            || old?.pathStartId != new.pathStartId || old?.pathEndId != new.pathEndId { linesDirty = true }
+        if old?.pathStartId != new.pathStartId || old?.pathEndId != new.pathEndId { linesDirty = true }
         if old?.focusMood != new.focusMood { requestFrame() }
         if let old, old.locateTrigger != new.locateTrigger { pendingLocate = true }
         if let old, old.homeTrigger != new.homeTrigger { pendingHome = true }
@@ -254,7 +253,7 @@ final class VibeMapRenderer: NSObject, MTKViewDelegate {
         measureZoomOutLimit()
     }
 
-    /// Rebuild the queue's dotted thread and the song path's row of dots.
+    /// Rebuild the song path's row of dots.
     func rebuildChart() {
         linesDirty = false
         guard let input, let f = field else { chartDraws = []; chartStep = 0; return }
@@ -266,13 +265,6 @@ final class VibeMapRenderer: NSObject, MTKViewDelegate {
             }) else { return }
             out.append(VibeChartDraw(buffer: buf, count: dots.count, colour: colour))
         }
-        let queueDots = VibeChart.buildQueue(ids: input.queueIds, playingId: input.playingId,
-                                             selectedId: input.selectedId,
-                                             operationSourceId: input.operationSourceId,
-                                             indexById: f.indexById, positions: f.positions,
-                                             sizes: f.sizes, goals: goals, moods: f.moods,
-                                             baseSize: f.baseSize)
-        add(queueDots, VibeMapStyle.queue)
         let chord = VibeChart.buildPathChord(startId: input.pathStartId, endId: input.pathEndId,
                                              indexById: f.indexById, positions: f.positions,
                                              sizes: f.sizes, goals: goals, moods: f.moods,

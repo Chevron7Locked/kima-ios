@@ -12,7 +12,7 @@ enum VibeMapStyle {
     static func operationRing(_ kind: VibeOperationKind) -> SIMD3<Float>? {
         kind == .blend ? nil : starlight
     }
-    /// Colour of the thread drawn through the queue.
+    /// Colour of the rings on queued songs.
     static let queueHex: UInt32 = 0xc9b184
     static var queue: SIMD3<Float> { linear(hex: queueHex) }
     /// Starlight, `#f3ecdd`.
@@ -81,10 +81,10 @@ enum VibeMapStyle {
     static let haloPower: Float = 3
     static let haloStrength: Float = 0.22
     /// Brightness range of the faint majority of stars.
-    static let faintLow: Float = 0.24
-    static let faintHigh: Float = 0.48
+    static let faintLow: Float = 0.40
+    static let faintHigh: Float = 0.70
 
-    // MARK: Queue chart (the dotted thread through the queue)
+    // MARK: Chart (the song path's row of dots)
 
     /// Dots sit this far apart on screen (points); closer dots are thinned by the shader's LOD.
     static let chartSpacingPt: Float = 5.5
@@ -94,22 +94,10 @@ enum VibeMapStyle {
     static let chartStepFactor: Float = 0.15
     /// A segment's stipple reaches this many world units out of each end star, then fades out.
     static let chartReach: Float = 3.6
-    /// How far along the queue the thread runs ahead / back, and how many ahead songs are ringed.
-    static let chartAhead = 60
-    static let chartBehind = 3
+    /// How many songs ahead in the queue are ringed.
     static let chartRinged = 8
-    /// Near dots at full strength fade to this by the 60th song ahead.
-    static let chartAlphaNear: Float = 0.62
-    static let chartAlphaFar: Float = 0.14
-    static let chartAlphaLast = 8
-    static let chartAlphaFade: Float = 52
-    /// The played part of the queue, thin: 0.2 × (1 + (order+1)/3) per web.
-    static let chartPlayedBase: Float = 0.2
-    /// Dots stop this far (points) outside an end star's disc, per kind of song.
-    static let chartClearQueued: Float = 7.5
-    static let chartClearPlaying: Float = 11
+    /// Dots stop this far (points) outside an end star's disc.
     static let chartClearSelected: Float = 10.5
-    static let chartClearOperation: Float = 13
     /// The song path's starlight row between its two ends.
     static let pathChordAlpha: Float = 0.22
 

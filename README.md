@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/Chevron7Locked/kima-hub"><img src="https://img.shields.io/badge/server-kima--hub-8c60d6?logo=github" alt="Server: kima-hub"></a>
-  <img src="https://img.shields.io/badge/App%20Store-coming%20soon-lightgrey?logo=apple" alt="App Store: coming soon">
+  <a href="https://apps.apple.com/app/id6789728815"><img src="https://img.shields.io/badge/App%20Store-download-0d96f6?logo=apple" alt="Download on the App Store"></a>
 </p>
 
 Kima for iOS is a native iPhone and iPad app for [Kima](https://github.com/Chevron7Locked/kima-hub), the self-hosted music, audiobook and podcast server. It plays your own library with the system audio stack, so playback keeps going in the background, on the lock screen and in the car. The app has no backend of its own: it needs a running Kima server, and apart from public cover art it talks to nothing else unless you choose to report a problem on GitHub.

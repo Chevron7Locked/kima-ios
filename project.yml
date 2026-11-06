@@ -12,8 +12,8 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"          # language mode; toolchain is Swift 6.3. Raise to 6.0 later.
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "17"
+    MARKETING_VERSION: "0.1.1"
+    CURRENT_PROJECT_VERSION: "18"
     # Real signing via the operator's Apple Developer account (Team 5V34ASRP8G). Automatic signing
     # gives a genuine application-identifier entitlement on BOTH device and Simulator (so the old
     # ad-hoc "-" Keychain workaround is no longer needed). For device/TestFlight the CarPlay

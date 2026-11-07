@@ -30,6 +30,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Kima uses the camera to scan the link code from your Kima server.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Kima connects to your own Kima server, which usually lives on your local network.</string>
 	<key>UIAppFonts</key>

@@ -6,6 +6,14 @@ import SwiftUI
 struct RootView: View {
     @State private var session = SessionStore()
     @State private var appEnv: AppEnvironment?
+    @State private var pairing: PresentedPairing?
+    private let pairingRouter = DevicePairingRouter.shared
+
+    /// The link-a-device request being shown. A new id each time so a second scan reopens the sheet.
+    private struct PresentedPairing: Identifiable {
+        let id = UUID()
+        let request: DevicePairingRequest
+    }
 
     var body: some View {
         Group {
@@ -54,8 +62,14 @@ struct RootView: View {
         }
         #endif
         .preferredColorScheme(.dark)
+        // Link a device (kima://link or "scan qr code"): here because it needs the session and works from any screen.
+        .sheet(item: $pairing) { item in
+            DevicePairingSheet(session: session, request: item.request) { pairing = nil }
+        }
+        .onChange(of: pairingRouter.pending) { _, _ in presentPairingRequest() }
+        .onAppear { presentPairingRequest() }
         // Over every phase: a changed certificate first shows up on sign-in or the can't-reach gate.
-        .modifier(CertificateChangedAlert())
+        .modifier(CertificateChangedAlert(isActive: pairing == nil))
         // Cap Dynamic Type at accessibility2 to protect dense layouts — the mini-player chrome,
         // Vibe Map node labels, and large display headers at accessibility3–5 would overflow
         // their containers. accessibility2 is still substantially larger than xxxLarge and covers
@@ -86,6 +100,10 @@ struct RootView: View {
                 break
             }
         }
+    }
+
+    private func presentPairingRequest() {
+        if let request = pairingRouter.take() { pairing = PresentedPairing(request: request) }
     }
 
     /// Builds the shell's `AppEnvironment` from the address this process talks to

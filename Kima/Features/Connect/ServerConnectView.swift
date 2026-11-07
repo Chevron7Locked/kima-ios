@@ -29,6 +29,7 @@ struct ServerConnectView: View {
 
                     urlField
                     connectButton
+                    ScanQRButton()
                     resultCard
 
                     Spacer(minLength: KimaSpacing.huge)

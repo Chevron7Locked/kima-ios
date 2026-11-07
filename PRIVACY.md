@@ -40,6 +40,8 @@ The server has its own privacy policy:
   sign-in only when it's your server, so it never goes to image sites.
 - Cover art sites (iTunes, Deezer, and similar): images only, fetched directly and anonymously,
   with no cookies and no sign-in.
+- Camera: only when you tap "scan qr code", to read the link code from your server's website. It
+  reads the code and nothing else; no picture or video is saved or sent.
 - Apple: keychain, background audio, lock screen controls. Apple's terms apply.
 - GitHub: only when you tap "open on github" on a problem report. It opens GitHub's new-issue page
   with your note, the app and iOS versions, the device model, and the screen. Nothing is filed

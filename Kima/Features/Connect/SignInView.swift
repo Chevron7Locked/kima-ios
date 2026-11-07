@@ -7,6 +7,7 @@ struct SignInView: View {
     var onSignedIn: () -> Void
     @State private var vm: SignInViewModel
     @FocusState private var focused: Field?
+    @State private var submitTask: Task<Void, Never>?
 
     enum Field: Hashable { case username, password, twoFactor, pairing }
 
@@ -27,14 +28,19 @@ struct SignInView: View {
             fields
 
             KimaPrimaryButton(title: buttonTitle, isLoading: vm.phase == .working) {
-                focused = nil
-                Task { await vm.submit() }
+                submit()
             }
             .disabled(!vm.canSubmit)
         }
+        .onDisappear { submitTask?.cancel() }
         .onChange(of: vm.phase) { _, phase in
             if phase == .success { onSignedIn() }
         }
+    }
+
+    private func submit() {
+        focused = nil
+        submitTask = Task { await vm.submit() }
     }
 
     private var failureMessage: String? {
@@ -51,14 +57,14 @@ struct SignInView: View {
                 .autocorrectionDisabled()
                 .focused($focused, equals: .username)
                 .submitLabel(.next)
-                .onSubmit { Task { await vm.submit() } }
+                .onSubmit { submit() }
                 .kimaField(focused: focused == .username)
 
             SecureField("", text: $vm.password, prompt: .kimaPrompt("password"))
                 .textContentType(.password)
                 .focused($focused, equals: .password)
                 .submitLabel(.go)
-                .onSubmit { Task { await vm.submit() } }
+                .onSubmit { submit() }
                 .kimaField(focused: focused == .password)
 
             if vm.needs2FA {
@@ -69,7 +75,7 @@ struct SignInView: View {
                     .autocorrectionDisabled()
                     .focused($focused, equals: .twoFactor)
                     .submitLabel(.go)
-                    .onSubmit { Task { await vm.submit() } }
+                    .onSubmit { submit() }
                     .kimaField(focused: focused == .twoFactor)
                     .privacySensitive()                          // redact under .privacy redaction
             }
@@ -80,17 +86,27 @@ struct SignInView: View {
                 .autocorrectionDisabled()
                 .focused($focused, equals: .pairing)
                 .submitLabel(.go)
-                .onSubmit { Task { await vm.submit() } }
+                .onSubmit { submit() }
                 .kimaField(focused: focused == .pairing)
                 .privacySensitive()                              // pairing code grants permanent API key — redact
 
-            Text("get a code on the kima website under settings → link device.")
+            Text(vm.phase == .working
+                 ? "approve this device on the link page."
+                 : "get a code on the kima website under settings → link a device.")
                 .font(KimaType.caption).foregroundStyle(KimaColor.textMuted)
+
+            if vm.phase == .working {
+                Button("cancel") { submitTask?.cancel() }
+                    .font(KimaType.caption).foregroundStyle(KimaColor.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: KimaLayout.minTouchTarget)
+            } else {
+                ScanQRButton()
+            }
         }
     }
 
     private var buttonTitle: String {
-        if vm.phase == .working { return "connecting…" }
+        if vm.phase == .working { return vm.method == .pairing ? "waiting for approval…" : "connecting…" }
         return vm.method == .password ? "sign in" : "pair device"
     }
 }

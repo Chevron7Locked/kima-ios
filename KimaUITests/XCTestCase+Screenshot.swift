@@ -16,3 +16,13 @@ extension XCTestCase {
             format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", needle, needle)).firstMatch
     }
 }
+
+extension XCTestCase {
+    /// Writes a PNG of the screen into the directory named by `KIMA_PAIRING_SHOTS`; does nothing when it is unset.
+    func savePairingShot(_ name: String) {
+        guard let dir = ProcessInfo.processInfo.environment["KIMA_PAIRING_SHOTS"], !dir.isEmpty else { return }
+        let url = URL(fileURLWithPath: dir, isDirectory: true).appendingPathComponent("\(name).png")
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: url)
+    }
+}

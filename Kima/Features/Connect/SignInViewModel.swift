@@ -1,12 +1,9 @@
 import SwiftUI
 import Observation
-#if canImport(UIKit)
-import UIKit
-#endif
 
 /// Connect to an EXISTING account, two ways:
 ///  • password sign-in (POST /api/auth/login, with 2FA via APIError.requires2FA), or
-///  • device-link pairing code (POST /api/device-link/verify → permanent API key).
+///  • device-link pairing code (see DeviceLinker).
 /// On success the credential is stored in the Keychain and the server URL persisted.
 @MainActor
 @Observable
@@ -28,7 +25,12 @@ final class SignInViewModel {
 
     var phase: Phase = .idle
 
-    init(server: KimaServer) { self.server = server }
+    private let linker: DeviceLinker
+
+    init(server: KimaServer, linker: DeviceLinker? = nil) {
+        self.server = server
+        self.linker = linker ?? DeviceLinker()
+    }
 
     var canSubmit: Bool {
         guard phase != .working else { return false }
@@ -36,9 +38,7 @@ final class SignInViewModel {
         case .password:
             return !username.isEmpty && !password.isEmpty && (!needs2FA || !twoFactorCode.isEmpty)
         case .pairing:
-            let cleaned = pairingCode.trimmingCharacters(in: .whitespaces).uppercased()
-            let validCharset = CharacterSet(charactersIn: "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-            return cleaned.count == 6 && cleaned.unicodeScalars.allSatisfy(validCharset.contains)
+            return DevicePairingCode.normalized(pairingCode) != nil
         }
     }
 
@@ -97,43 +97,19 @@ final class SignInViewModel {
 
     private func pairWithCode() async {
         guard phase != .working else { return }
-        phase = .working
-        let client = KimaAPIClient(server: server)
-        let code = pairingCode.trimmingCharacters(in: .whitespaces).uppercased()
-        let validCharset = CharacterSet(charactersIn: "ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
-        guard code.count == 6, code.unicodeScalars.allSatisfy(validCharset.contains) else {
+        guard let code = DevicePairingCode.normalized(pairingCode) else {
             phase = .failed("enter a valid 6-character pairing code.")
             return
         }
-        do {
-            let response = try await client.deviceLinkVerify(code: code, deviceName: Self.deviceName)
-            guard response.success, let apiKey = response.apiKey else {
-                phase = .failed("that code didn't work. get a new one and try again.")
-                return
-            }
-            guard KeychainStore.setCredential(apiKey, for: KeychainStore.apiKey, server: server) else {
-                phase = .failed("couldn't securely save your device link. please try again.")
-                return
-            }
-            KeychainStore.clearCredentials(except: [KeychainStore.apiKey])   // drops any other server's tokens
-            persistServerURL()
-            phase = .success
-        } catch let error as APIError {
-            phase = .failed(error.errorDescription ?? "pairing failed.")
-        } catch {
-            phase = .failed(error.localizedDescription)
+        phase = .working
+        switch await linker.link(code: code, server: server) {
+        case .linked:                phase = .success
+        case .cancelled:             phase = .idle
+        case .failed(let message, _): phase = .failed(message)
         }
     }
 
     private func persistServerURL() {
         ServerURLStore.setStored(server.baseURL.absoluteString)
-    }
-
-    private static var deviceName: String {
-        #if canImport(UIKit)
-        return UIDevice.current.name
-        #else
-        return "iPhone"
-        #endif
     }
 }

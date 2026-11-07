@@ -87,7 +87,11 @@ struct KimaApp: App {
                 }
                 // MARK: - Deep link handler (kima://share/<token>)
                 .onOpenURL { url in
-                    if let token = Self.validateShareDeepLink(url) {
+                    if let request = DevicePairingRequest(url: url) {
+                        // kima://link?code=…&server=… (DevicePairingLink). Opens a sheet that asks first.
+                        pendingShareToken = nil   // a share sheet would block this one
+                        DevicePairingRouter.shared.request(request)
+                    } else if let token = Self.validateShareDeepLink(url) {
                         pendingShareToken = token
                     } else if let route = parsePlayerRoute(from: url) {
                         // kima://queue · kima://sleep-timer (PlayerRoute.swift). Routed via
@@ -131,8 +135,10 @@ struct KimaApp: App {
     // MARK: - Deep link validation
 
     /// Parses and validates a kima://share/<token> URL: scheme "kima", host "share", exactly one path
-    /// segment, token base64url [A-Za-z0-9-_] of 16–64 chars. Anything else is silently dropped; no
-    /// server/host is ever taken from a deep link (injection prevention), and query/fragment are ignored.
+    /// segment, token base64url [A-Za-z0-9-_] of 16–64 chars. Anything else is silently dropped; this link
+    /// never names a server (it uses the one already stored), and query/fragment are ignored. The
+    /// kima://link pairing URL does name a server, so it is parsed elsewhere and only ever acted on after
+    /// the person confirms the host.
     private static func validateShareDeepLink(_ url: URL) -> String? {
         guard url.scheme == "kima" else { return nil }
         guard url.host() == "share" else { return nil }

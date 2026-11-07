@@ -5,6 +5,10 @@ import SwiftUI
 /// offered only when the key changed. "cancel" keeps blocking that server. Changes for several
 /// hosts show one after another.
 struct CertificateChangedAlert: ViewModifier {
+    /// False while a sheet covers the view this is attached to: the sheet carries its own copy, and two
+    /// alerts on one state would fight over presenting.
+    var isActive = true
+
     private var state: ServerTrustState { .shared }
 
     func body(content: Content) -> some View {
@@ -35,8 +39,8 @@ struct CertificateChangedAlert: ViewModifier {
 
     private var isPresented: Binding<Bool> {
         Binding(
-            get: { state.shown != nil },
-            set: { if !$0 { state.dismissShown() } }
+            get: { isActive && state.shown != nil },
+            set: { if !$0, isActive { state.dismissShown() } }
         )
     }
 }

@@ -196,7 +196,6 @@ struct LibraryView: View {
             TracksListView(
                 phase: vm.tracksPhase,
                 searchText: vm.searchText,
-                currentTrackId: player.currentTrack?.id,
                 onPlayTrack: { idx, tracks in
                     player.play(tracks: tracks, startAt: idx)
                 },

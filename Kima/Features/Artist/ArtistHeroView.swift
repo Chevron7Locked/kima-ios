@@ -154,8 +154,8 @@ struct ArtistHeroView: View {
             let hasOwned = !ownedAlbums.isEmpty
 
             // Play / Pause — the view's one amber control, a flat disc.
-            KimaHeroPlayButton(isPlaying: player.isPlaying && isPlayingThisArtist, label: "play all") {
-                if player.isPlaying && isPlayingThisArtist { player.pause() }
+            KimaHeroPlayButton(isPlaying: artistIsAudible, label: "play all") {
+                if artistIsAudible { player.pause() }
                 else { onPlayAll() }
             }
             .disabled(!hasOwned && source == .library)
@@ -217,9 +217,10 @@ struct ArtistHeroView: View {
         count > 0 ? "download \(albumCount(count))?" : "download all albums?"
     }
 
-    private var isPlayingThisArtist: Bool {
-        player.currentTrack?.artist?.id == artist.id ||
-        player.currentTrack?.artist?.name == artist.name
+    /// Whether this artist's sound is what plays: audible ∧ the page's own membership rule,
+    /// name fallback included (ADR 0001).
+    private var artistIsAudible: Bool {
+        player.isAudible { $0.artist?.id == artist.id || $0.artist?.name == artist.name }
     }
 }
 

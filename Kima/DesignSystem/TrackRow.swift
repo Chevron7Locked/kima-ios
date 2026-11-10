@@ -1,5 +1,12 @@
 import SwiftUI
 
+// MARK: - NowPlaying
+
+/// The row-glyph triad: `.playing` while the item is audible, `.current` while it holds a paused
+/// session (tinted, findable, resumable), `.none` otherwise. Pages get it from
+/// `PlaybackController.displayState(of:)` — engine truth, scoped by identity (ADR 0001).
+enum NowPlaying { case none, current, playing }
+
 // MARK: - TrackRow
 
 /// The one track row (web TrackRow), at least 44pt: number (or a mood dot), optional 40pt cover, title over a
@@ -8,7 +15,6 @@ import SwiftUI
 /// the number or dot, or sits on the cover. Buttons, menus, drag and swipe stay at the call site.
 struct TrackRow<Trailing: View>: View {
     enum Artwork { case none, server(String?), remote(String?) }
-    enum NowPlaying { case none, current, playing }
 
     var number: String? = nil
     /// A narrow dot column in place of the number (the library's tracks list).

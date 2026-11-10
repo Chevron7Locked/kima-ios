@@ -13,8 +13,10 @@ struct SeriesBookRow: View {
 
     // MARK: Now-playing awareness (visual only)
 
+    /// This book holds the session — accent highlight (current, ADR 0001).
     private var isThisBookLoaded: Bool { env.player.isAudiobookLoaded(book.id) }
-    private var isThisBookPlaying: Bool { isThisBookLoaded && env.player.isPlaying }
+    /// This book's sound — the waveform and badge light (ADR 0001).
+    private var isThisBookAudible: Bool { env.player.isAudible(bookId: book.id) }
 
     private var progressLabel: String? {
         guard let p = book.progress else { return nil }
@@ -36,7 +38,7 @@ struct SeriesBookRow: View {
             }
             .buttonStyle(.plain)
 
-            CoverPlayBadge(isActive: isThisBookPlaying, action: onPlay)
+            CoverPlayBadge(isActive: isThisBookAudible, action: onPlay)
                 .accessibilityLabel("play \(book.title)")
                 .padding(.trailing, KimaSpacing.lg)
         }
@@ -48,7 +50,7 @@ struct SeriesBookRow: View {
             // number when loaded-but-paused, muted number otherwise. Same idiom as TrackRow's
             // leading slot elsewhere in the app.
             Group {
-                if isThisBookPlaying {
+                if isThisBookAudible {
                     Image(systemName: "waveform")
                         .font(.system(size: 13, weight: .medium))
                 } else {

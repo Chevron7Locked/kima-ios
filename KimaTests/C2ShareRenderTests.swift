@@ -60,13 +60,13 @@ final class C2ShareRenderTests: XCTestCase {
         let a = try pick(1, "Music Is Math"), b = try pick(2, "Dawn Chorus", liked: true), c = try pick(3, "Sunshine Recorder")
         let view = ScrollView {
             VStack(spacing: KimaSpacing.md) {
-                DiscoverFeaturedPick(track: a, isCurrentTrack: true, isPlaying: true, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverFeaturedPick(track: b, isCurrentTrack: false, isPlaying: false, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverFeaturedRow(track: b, index: 2, isCurrentTrack: true, isPlaying: true, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverFeaturedRow(track: c, index: 3, isCurrentTrack: false, isPlaying: false, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverCrateRow(track: a, index: 4, isCurrentTrack: true, isPlaying: true, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverCrateRow(track: b, index: 5, isCurrentTrack: true, isPlaying: false, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverCrateRow(track: c, index: 6, isCurrentTrack: false, isPlaying: false, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverFeaturedPick(track: a, isCurrentTrack: true, isAudible: true, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverFeaturedPick(track: b, isCurrentTrack: false, isAudible: false, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverFeaturedRow(track: b, index: 2, isCurrentTrack: true, isAudible: true, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverFeaturedRow(track: c, index: 3, isCurrentTrack: false, isAudible: false, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverCrateRow(track: a, index: 4, isCurrentTrack: true, isAudible: true, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverCrateRow(track: b, index: 5, isCurrentTrack: true, isAudible: false, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverCrateRow(track: c, index: 6, isCurrentTrack: false, isAudible: false, onPlay: {}, onTogglePlay: {}, onLike: {})
             }
             .padding(.top, 60)
         }

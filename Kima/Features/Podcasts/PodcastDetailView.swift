@@ -87,19 +87,11 @@ struct PodcastDetailView: View {
 
     @ViewBuilder
     private func subscribedBody(_ podcast: Podcast) -> some View {
-        let audible = player.isPlaying || player.isWaitingForAudio
-        // The episode the engine is audibly playing — true state, not session identity. (The build-20 bug:
-        // these reads keyed on "this show owns the session", so a paused session showed pause everywhere.)
-        let audibleEpisodeId: String? = {
-            guard audible else { return nil }
-            if case .podcastEpisode(_, let ep, _) = player.playbackType { return ep.id }
-            return nil
-        }()
-        // Whether this show holds the current session — dispatch (resume vs start) keys on this, display not.
-        let ownsSession: Bool = {
-            if case .podcastEpisode(let pid, _, _) = player.playbackType { return pid == podcast.id }
-            return false
-        }()
+        // Display keys on audible (engine truth); identity only scopes which item and what a tap does
+        // (ADR 0001 — born from build 20). The controller answers; the page does not recompute.
+        let audible = player.isAudibleNow
+        let audibleEpisodeId = player.audiblePodcastEpisodeId
+        let ownsSession = player.ownsPodcastSession(podcast.id)
         let continueEps = vm.continueListening()
         let sortedEps   = vm.sortedEpisodes()
 

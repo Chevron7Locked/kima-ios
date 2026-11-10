@@ -11,7 +11,9 @@ struct QueueThreadRow: View {
     let topNeighborColor: Color?
     let bottomNeighborColor: Color?
     let isCurrent: Bool
-    let isPlaying: Bool
+    /// Main playback is audible (engine truth, ADR 0001) — the breath is a light, so it keeps
+    /// pulsing while the current row's sound is being fetched.
+    let isAudible: Bool
 
     @State private var breathe = false
 
@@ -37,7 +39,7 @@ struct QueueThreadRow: View {
         .frame(width: gutterWidth)
         .frame(maxHeight: .infinity)
         .onAppear { updateBreathing() }
-        .onChange(of: isPlaying) { _, _ in updateBreathing() }
+        .onChange(of: isAudible) { _, _ in updateBreathing() }
     }
 
     // MARK: - Layers
@@ -74,12 +76,12 @@ struct QueueThreadRow: View {
             .overlay(Circle().strokeBorder(Color.black.opacity(0.18), lineWidth: 0.5))
     }
 
-    // MARK: - Breathing pulse (current + playing only)
+    // MARK: - Breathing pulse (current + audible only)
 
     /// Starts (or gently settles) the halo's infinite breathe animation. Only ever
     /// runs on the current row — at most one `QueueThreadRow` qualifies at a time.
     private func updateBreathing() {
-        guard isCurrent, isPlaying else {
+        guard isCurrent, isAudible else {
             withAnimation(.easeOut(duration: 0.3)) { breathe = false }
             return
         }

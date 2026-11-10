@@ -8,7 +8,8 @@ import SwiftUI
 struct DiscoverFeaturedPick: View {
     let track: DiscoverTrack
     let isCurrentTrack: Bool
-    let isPlaying: Bool
+    /// Main playback is audible (engine truth, ADR 0001); the card's own `isCurrentTrack` scopes it.
+    let isAudible: Bool
     let onPlay: () -> Void
     let onTogglePlay: () -> Void
     let onLike: () -> Void
@@ -85,7 +86,7 @@ struct DiscoverFeaturedPick: View {
     private var playGlyph: some View {
         ZStack {
             Circle().fill(KimaColor.discGlass).frame(width: 34, height: 34)
-            DiscoverPlayGlyph(isPlaying: isCurrentTrack && isPlaying,
+            DiscoverPlayGlyph(isPlaying: isCurrentTrack && isAudible,
                               playColor: isCurrentTrack ? nil : KimaColor.textPrimary, playWeight: .semibold)
         }
         .allowsHitTesting(false)
@@ -114,9 +115,9 @@ struct DiscoverFeaturedPick: View {
             Spacer(minLength: KimaSpacing.sm)
 
             HStack(spacing: KimaSpacing.md) {
-                let playing = isCurrentTrack && isPlaying
-                KimaPrimaryButton(title: playing ? "pause" : "play",
-                                  systemImage: playing ? "pause.fill" : "play.fill",
+                let audible = isCurrentTrack && isAudible
+                KimaPrimaryButton(title: audible ? "pause" : "play",
+                                  systemImage: audible ? "pause.fill" : "play.fill",
                                   size: .compact, action: handleTap)
 
                 Button(action: onLike) {

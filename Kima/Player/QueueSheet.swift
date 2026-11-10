@@ -265,7 +265,7 @@ struct QueueSheet: View {
                     topNeighborColor: nodeColor(atPlayPosition: playPos - 1),
                     bottomNeighborColor: nodeColor(atPlayPosition: playPos + 1),
                     isCurrent: isCurrent,
-                    isPlaying: player.isPlaying
+                    isAudible: player.isAudibleNow
                 )
 
                 HStack(spacing: KimaSpacing.md) {

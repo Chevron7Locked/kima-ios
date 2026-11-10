@@ -85,8 +85,8 @@ struct DiscoverHeroSection: View {
 
 struct DiscoverActionBar: View {
     let playlist: DiscoverPlaylist?
-    let isPlaylistPlaying: Bool
-    let isPlaying: Bool
+    /// Whether this playlist's sound is audible (ADR 0001) — display keys on this alone.
+    let playlistIsAudible: Bool
     let isGenerating: Bool
     let onPlayToggle: () -> Void
     let onCancelGeneration: () -> Void
@@ -95,9 +95,8 @@ struct DiscoverActionBar: View {
         HStack(spacing: KimaSpacing.md) {
             // Play / Pause — shown only when playlist has tracks
             if let p = playlist, !p.tracks.isEmpty {
-                let playing = isPlaylistPlaying && isPlaying
-                KimaPrimaryButton(title: playing ? "playing" : "play all",
-                                  systemImage: playing ? "pause.fill" : "play.fill",
+                KimaPrimaryButton(title: playlistIsAudible ? "playing" : "play all",
+                                  systemImage: playlistIsAudible ? "pause.fill" : "play.fill",
                                   size: .compact, action: onPlayToggle)
                     .disabled(isGenerating)
             }

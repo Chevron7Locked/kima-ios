@@ -47,13 +47,12 @@ struct SearchSongsSection: View {
         VStack(spacing: 0) {
             ForEach(displayRows, id: \.element.id) { row in
                 let track = row.element
-                let isCurrent = player.currentTrack?.id == track.id
 
                 Button { onPlay(tracks, row.offset) } label: {
                     TrackRow(artwork: .server(track.album?.coverArt), title: track.effectiveTitle,
                              subtitle: [track.artist?.name, track.album?.title].compactMap { $0 }.joined(separator: " · "),
                              duration: track.duration.durationFormatted,
-                             nowPlaying: isCurrent ? (player.isPlaying ? .playing : .current) : .none,
+                             nowPlaying: player.displayState(of: track.id),
                              highlight: env.accent.color)
                 }
                 .buttonStyle(.plain)

@@ -121,7 +121,8 @@ struct PodcastsLibraryView: View {
             if atRoot { Task { await vm.refreshSubscribed(client: env.client) } }
         }
         // A rail episode that starts, ends or gives way to another moves between the rails.
-        .onChange(of: playingEpisodeId) { _, _ in
+        // Keyed on session identity on purpose — a reload trigger, not a light (ADR 0001).
+        .onChange(of: currentEpisodeId) { _, _ in
             Task { await vm.reloadListening(client: env.client) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .kimaPodcastUnsubscribed)) { note in
@@ -137,7 +138,8 @@ struct PodcastsLibraryView: View {
         }
     }
 
-    private var playingEpisodeId: String? {
+    /// The episode holding the playback session, audible or not — session-change detection only.
+    private var currentEpisodeId: String? {
         if case .podcastEpisode(_, let episode, _) = player.playbackType { return episode.id }
         return nil
     }

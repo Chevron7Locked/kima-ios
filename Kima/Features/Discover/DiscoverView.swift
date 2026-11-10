@@ -51,8 +51,7 @@ struct DiscoverView: View {
                 if vm.playlist?.tracks.isEmpty == false || vm.isGenerating {
                     DiscoverActionBar(
                         playlist: vm.playlist,
-                        isPlaylistPlaying: isPlaylistPlaying,
-                        isPlaying: player.isPlaying,
+                        playlistIsAudible: playlistIsAudible,
                         isGenerating: vm.isGenerating,
                         onPlayToggle: handlePlayToggle,
                         onCancelGeneration: { showCancelConfirm = true }
@@ -106,7 +105,7 @@ struct DiscoverView: View {
                 DiscoverFeaturedPick(
                     track: pick,
                     isCurrentTrack: player.currentTrack?.id == pick.id,
-                    isPlaying: player.isPlaying,
+                    isAudible: player.isAudibleNow,
                     onPlay: { handlePlayTrack(id: pick.id, in: playlist) },
                     onTogglePlay: { player.togglePlayPause() },
                     onLike: { Task { await vm.toggleLike(track: pick, using: env.client) } }
@@ -121,7 +120,7 @@ struct DiscoverView: View {
                             track: track,
                             index: i + 2,
                             isCurrentTrack: player.currentTrack?.id == track.id,
-                            isPlaying: player.isPlaying,
+                            isAudible: player.isAudibleNow,
                             onPlay: { handlePlayTrack(id: track.id, in: playlist) },
                             onTogglePlay: { player.togglePlayPause() },
                             onLike: { Task { await vm.toggleLike(track: track, using: env.client) } }
@@ -139,7 +138,7 @@ struct DiscoverView: View {
                         track: track,
                         index: i + 2 + featured.count,
                         isCurrentTrack: player.currentTrack?.id == track.id,
-                        isPlaying: player.isPlaying,
+                        isAudible: player.isAudibleNow,
                         onPlay: { handlePlayTrack(id: track.id, in: playlist) },
                         onTogglePlay: { player.togglePlayPause() },
                         onLike: { Task { await vm.toggleLike(track: track, using: env.client) } }
@@ -250,13 +249,20 @@ struct DiscoverView: View {
 
     // MARK: - Actions
 
-    private var isPlaylistPlaying: Bool {
+    /// Whether this playlist's sound is audible — the button's display (ADR 0001).
+    private var playlistIsAudible: Bool {
         guard let p = vm.playlist else { return false }
-        return p.tracks.contains { $0.id == player.currentTrack?.id }
+        return player.isAudible(trackIds: Set(p.tracks.map(\.id)))
+    }
+
+    /// Whether this playlist holds the current session — dispatch only (resume vs start over).
+    private var playlistOwnsSession: Bool {
+        guard let p = vm.playlist else { return false }
+        return player.ownsSession(forTrackIds: Set(p.tracks.map(\.id)))
     }
 
     private func handlePlayToggle() {
-        if isPlaylistPlaying {
+        if playlistOwnsSession {
             player.togglePlayPause()
         } else {
             handlePlayPlaylist()

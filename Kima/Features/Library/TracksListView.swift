@@ -6,7 +6,6 @@ struct TracksListView: View {
     let phase: LoadPhase<[Track]>
     /// The search typed above the list ("" for none).
     let searchText: String
-    let currentTrackId: String?
     let onPlayTrack: (Int, [Track]) -> Void  // (index, full list) → play
     let onRetry: () -> Void
 
@@ -29,7 +28,6 @@ struct TracksListView: View {
                         ForEach(Array(tracks.enumerated()), id: \.element.id) { idx, track in
                             CollectionTrackRow(
                                 track: track,
-                                isCurrent: currentTrackId == track.id,
                                 onPlay: { onPlayTrack(idx, tracks) }
                             )
                             if idx < tracks.count - 1 { KimaHairline() }
@@ -71,8 +69,6 @@ private struct TracksHeaderRow: View {
 
 private struct CollectionTrackRow: View {
     let track: Track
-    /// This row is the loaded track (playing or paused).
-    let isCurrent: Bool
     let onPlay: () -> Void
 
     @Environment(AppEnvironment.self) private var env
@@ -98,7 +94,7 @@ private struct CollectionTrackRow: View {
             TrackRow(moodColumn: true, mood: mood, artwork: .server(track.album?.coverArt), title: track.effectiveTitle,
                      subtitle: metaLine, albumColumn: hSizeClass != .compact ? track.album?.title : nil,
                      duration: track.duration.durationFormatted,
-                     nowPlaying: isCurrent ? (env.player.isPlaying ? .playing : .current) : .none,
+                     nowPlaying: env.player.displayState(of: track.id),
                      highlight: env.accent.color)
         }
         .buttonStyle(.plain)

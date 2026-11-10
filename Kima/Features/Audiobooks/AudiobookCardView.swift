@@ -20,13 +20,13 @@ struct AudiobookCardView: View {
 
     @Environment(PlaybackController.self) private var player
 
-    /// Whether this book is the one playing.
-    private var isPlayingThis: Bool {
-        player.isPlaying && player.isAudiobookLoaded(bookId)
+    /// Whether this book's sound is audible (ADR 0001: engine truth, scoped by book id).
+    private var bookIsAudible: Bool {
+        player.isAudible(bookId: bookId)
     }
 
     var body: some View {
-        KimaCoverCard(title: title, subtitle: author, titleLines: 2, isPlaying: isPlayingThis, onPlay: onPlay,
+        KimaCoverCard(title: title, subtitle: author, titleLines: 2, isPlaying: bookIsAudible, onPlay: onPlay,
                       onTap: onTap) {
             CoverArtImage(coverId: coverId, size: 256, cornerRadius: 0, placeholderSymbol: "book")
                 .overlay(alignment: .bottom) {

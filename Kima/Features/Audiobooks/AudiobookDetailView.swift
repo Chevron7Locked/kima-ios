@@ -52,7 +52,7 @@ struct AudiobookDetailView: View {
                         LiveSectionList(
                             sections: vm.displaySections,
                             isLoaded: isThisBookLoaded(book),
-                            isPlaying: isThisBookPlaying(book)
+                            isPlaying: isThisBookAudible(book)
                         ) { section in
                             if isThisBookLoaded(book) {
                                 env.player.seek(to: section.start)
@@ -212,8 +212,9 @@ struct AudiobookDetailView: View {
     /// True when `book` is the one currently loaded in the player (playing or paused).
     private func isThisBookLoaded(_ book: Audiobook) -> Bool { env.player.isAudiobookLoaded(book.id) }
 
-    private func isThisBookPlaying(_ book: Audiobook) -> Bool {
-        isThisBookLoaded(book) && env.player.isPlaying
+    /// Whether this book's sound is audible (ADR 0001) — the chapter list's waveform light.
+    private func isThisBookAudible(_ book: Audiobook) -> Bool {
+        env.player.isAudible(bookId: book.id)
     }
 
     // MARK: - Error

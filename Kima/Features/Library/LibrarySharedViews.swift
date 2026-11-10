@@ -65,12 +65,14 @@ struct LibraryGridCard: View {
     @Environment(ToastCenter.self) private var toast
     @Environment(PlaybackController.self) private var player
 
-    /// Whether the playing track belongs to this album or artist.
-    private var isPlayingThis: Bool {
-        guard player.isPlaying, let track = player.currentTrack else { return false }
-        switch menuType {
-        case .album:  return track.album?.id == menuId
-        case .artist: return track.artist?.id == menuId
+    /// Whether this album's or artist's sound is audible (ADR 0001: engine truth, scoped by the
+    /// card's own membership rule).
+    private var menuIsAudible: Bool {
+        player.isAudible { track in
+            switch menuType {
+            case .album:  return track.album?.id == menuId
+            case .artist: return track.artist?.id == menuId
+            }
         }
     }
 
@@ -82,7 +84,7 @@ struct LibraryGridCard: View {
     }
 
     var body: some View {
-        KimaCoverCard(title: title, subtitle: subtitle, mood: mood, isPlaying: isPlayingThis,
+        KimaCoverCard(title: title, subtitle: subtitle, mood: mood, isPlaying: menuIsAudible,
                       isBusy: isBusy, onPlay: onPlay, onTap: onTap) {
             CoverArtImage(coverId: coverId, size: 256, cornerRadius: 0)
         }

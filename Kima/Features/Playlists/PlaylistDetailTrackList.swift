@@ -62,8 +62,7 @@ struct PlaylistDetailTrackList<Header: View>: View {
                     PlaylistTrackRow(
                         item: item,
                         index: idx,
-                        isPlaying: player.currentTrack?.id == item.track.id && player.isPlaying,
-                        isCurrent: player.currentTrack?.id == item.track.id,
+                        nowPlaying: player.displayState(of: item.track.id),
                         isOwner: isOwner,
                         onPlay: { player.play(tracks: allTracks, startAt: idx) },
                         onNext: { announcePlayNext(player.playNext(allTracks[idx]), in: toast) },
@@ -139,8 +138,7 @@ struct PlaylistDetailTrackList<Header: View>: View {
 private struct PlaylistTrackRow: View {
     let item: PlaylistItem
     let index: Int
-    let isPlaying: Bool
-    let isCurrent: Bool
+    let nowPlaying: NowPlaying
     let isOwner: Bool
     let onPlay: () -> Void
     let onNext: () -> Void
@@ -164,7 +162,7 @@ private struct PlaylistTrackRow: View {
             TrackRow(number: "\(index + 1)", artwork: .server(item.track.album?.coverArt), title: item.track.title,
                      subtitle: metaLine, albumColumn: hSizeClass != .compact ? item.track.album?.title : nil,
                      duration: item.track.duration.durationFormatted,
-                     nowPlaying: isPlaying ? .playing : (isCurrent ? .current : .none),
+                     nowPlaying: nowPlaying,
                      highlight: env.accent.color)
         }
         .buttonStyle(.plain)

@@ -10,7 +10,8 @@ struct DiscoverFeaturedRow: View {
     /// 1-based setlist index, continuing the count from the featured pick (which is 01).
     let index: Int
     let isCurrentTrack: Bool
-    let isPlaying: Bool
+    /// Main playback is audible (engine truth, ADR 0001); the row's own `isCurrentTrack` scopes it.
+    let isAudible: Bool
     let onPlay: () -> Void
     let onTogglePlay: () -> Void
     let onLike: () -> Void
@@ -45,7 +46,7 @@ struct DiscoverFeaturedRow: View {
 
                 if isCurrentTrack {
                     Circle().fill(KimaColor.discGlass).frame(width: 30, height: 30)
-                    DiscoverPlayGlyph(isPlaying: isPlaying)
+                    DiscoverPlayGlyph(isPlaying: isAudible)
                 }
             }
 
@@ -87,7 +88,8 @@ struct DiscoverCrateRow: View {
     let track: DiscoverTrack
     let index: Int
     let isCurrentTrack: Bool
-    let isPlaying: Bool
+    /// Main playback is audible (engine truth, ADR 0001); the row's own `isCurrentTrack` scopes it.
+    let isAudible: Bool
     let onPlay: () -> Void
     let onTogglePlay: () -> Void
     let onLike: () -> Void
@@ -103,7 +105,7 @@ struct DiscoverCrateRow: View {
             Button(action: handleTap) {
                 ZStack {
                     if isCurrentTrack {
-                        DiscoverPlayGlyph(isPlaying: isPlaying)
+                        DiscoverPlayGlyph(isPlaying: isAudible)
                     } else {
                         Text(String(format: "%02d", index))
                             .font(KimaType.caption)

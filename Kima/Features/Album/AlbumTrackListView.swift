@@ -50,7 +50,7 @@ struct AlbumTrackListView: View {
         // Preview applies to: missing tracks, OR all tracks when album is unowned
         let needsPreview = isMissing || !isOwned
         let displayNo = track.displayTrackNo ?? track.trackNumber ?? track.trackNo ?? (indexInSection + 1)
-        let isActive = !isMissing && player.currentTrack?.id == track.id
+        let nowPlaying: NowPlaying = isMissing ? .none : player.displayState(of: track.id)
         let isPreviewing = vm.preview.previewingId == track.id
 
         AlbumTrackRow(
@@ -58,8 +58,7 @@ struct AlbumTrackListView: View {
             trackNumber: displayNo,
             isMissing: isMissing,
             needsPreview: needsPreview,
-            isActive: isActive,
-            isActivePlaying: isActive && player.isPlaying,
+            nowPlaying: nowPlaying,
             isPreviewing: isPreviewing
         ) {
             if needsPreview {
@@ -129,8 +128,7 @@ private struct AlbumTrackRow: View {
     let trackNumber: Int
     let isMissing: Bool
     let needsPreview: Bool
-    let isActive: Bool
-    let isActivePlaying: Bool
+    let nowPlaying: NowPlaying
     let isPreviewing: Bool
 
     @Environment(AppEnvironment.self) private var env
@@ -141,7 +139,7 @@ private struct AlbumTrackRow: View {
             TrackRow(number: "\(trackNumber)", title: track.effectiveTitle,
                      subtitle: isMissing ? nil : track.artist?.name,
                      duration: (!isMissing || track.duration > 0) ? track.duration.durationFormatted : nil,
-                     nowPlaying: isActivePlaying ? .playing : (isActive ? .current : .none),
+                     nowPlaying: nowPlaying,
                      highlight: env.accent.color, isMissing: isMissing) {
                 if let count = track.playCount ?? track.userPlayCount, count > 0, !isMissing {
                     KimaTag(text: "\(count)")

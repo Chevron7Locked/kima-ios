@@ -15,11 +15,12 @@ struct AudiobookActionBar: View {
 
     // MARK: Derived state
 
+    /// This book holds the playback session — progress readout and resume dispatch (ADR 0001).
     private var isThisBookLoaded: Bool { env.player.isAudiobookLoaded(book.id) }
 
-    private var isThisBookPlaying: Bool {
-        isThisBookLoaded && env.player.isPlaying
-    }
+    /// This book's sound is audible — display and the pause/resume toggle both key on this,
+    /// so the glyph always matches what the tap will do (ADR 0001).
+    private var isThisBookAudible: Bool { env.player.isAudible(bookId: book.id) }
 
     private var storedProgress: AudiobookProgress? { book.progress }
     private var isInProgress: Bool {
@@ -56,13 +57,13 @@ struct AudiobookActionBar: View {
     private var playButton: some View {
         Button {
             if isThisBookLoaded {
-                if env.player.isPlaying { env.player.pause() } else { env.player.resume() }
+                if isThisBookAudible { env.player.pause() } else { env.player.resume() }
             } else {
                 Task { await env.player.playAudiobook(book, client: env.client) }
             }
         } label: {
             HStack(spacing: KimaSpacing.sm) {
-                Image(systemName: isThisBookPlaying ? "pause.fill" : "play.fill")
+                Image(systemName: isThisBookAudible ? "pause.fill" : "play.fill")
                     .font(.system(size: 18, weight: .semibold))
                 Text(playLabel)
                     .font(KimaType.headline)
@@ -77,7 +78,7 @@ struct AudiobookActionBar: View {
     }
 
     private var playLabel: String {
-        if isThisBookPlaying { return "pause" }
+        if isThisBookAudible { return "pause" }
         return isInProgress ? "resume" : "play"
     }
 

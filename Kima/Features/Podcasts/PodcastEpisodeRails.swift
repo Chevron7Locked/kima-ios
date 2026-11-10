@@ -39,7 +39,7 @@ struct PodcastEpisodeRails: View {
                     // What is left or when it came out goes first: a long show name truncates after it.
                     subtitle: "\(detail(item)) · \(item.podcast.title)",
                     titleLines: 2,
-                    isPlaying: isPlaying(item.episode),
+                    isPlaying: isAudible(item.episode),
                     onPlay: { play(item) },
                     onTap: { onOpenShow(item.podcast.id) }
                 ) {
@@ -62,9 +62,9 @@ struct PodcastEpisodeRails: View {
         }
     }
 
-    private func isPlaying(_ episode: PodcastListeningEpisode) -> Bool {
-        guard player.isPlaying, case .podcastEpisode(_, let current, _) = player.playbackType else { return false }
-        return current.id == episode.id
+    /// Whether this episode's sound is audible (ADR 0001): the row light, never the tap.
+    private func isAudible(_ episode: PodcastListeningEpisode) -> Bool {
+        player.audiblePodcastEpisodeId == episode.id
     }
 
     /// The episode on its own: what plays after it comes from the server when it ends.

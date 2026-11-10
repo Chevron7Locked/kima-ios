@@ -10,8 +10,6 @@ struct ArtistSectionsView: View {
     let onTapArtist: (String) -> Void
     let server: KimaServer
 
-    @Environment(PlaybackController.self) private var player
-
     private var ownedAlbums: [Album] { vm.ownedAlbums(from: albums) }
     private var availableAlbums: [Album] { vm.availableAlbums(from: albums) }
 
@@ -29,8 +27,7 @@ struct ArtistSectionsView: View {
                     allTracks: topTracks,
                     artistName: artist.name,
                     vm: vm,
-                    server: server,
-                    currentTrackId: player.currentTrack?.id
+                    server: server
                 )
             }
 
@@ -65,7 +62,6 @@ private struct ArtistPopularTracksSection: View {
     let artistName: String
     let vm: ArtistDetailViewModel
     let server: KimaServer
-    let currentTrackId: String?
 
     @Environment(PlaybackController.self) private var player
     @Environment(AppEnvironment.self) private var env
@@ -78,14 +74,14 @@ private struct ArtistPopularTracksSection: View {
             VStack(spacing: 0) {
                 ForEach(Array(tracks.enumerated()), id: \.element.id) { idx, track in
                     let isOwned = !isUnowned(track)
-                    let isPlaying = currentTrackId == track.id
+                    let nowPlaying = player.displayState(of: track.id)
                     let isPreviewing = vm.preview.previewingId == track.id
 
                     PopularTrackRow(
                         track: track,
                         index: idx + 1,
                         isOwned: isOwned,
-                        isPlaying: isPlaying,
+                        nowPlaying: nowPlaying,
                         isPreviewing: isPreviewing,
                         onTap: {
                             if isOwned {
@@ -134,7 +130,7 @@ private struct PopularTrackRow: View {
     let track: Track
     let index: Int
     let isOwned: Bool
-    let isPlaying: Bool
+    let nowPlaying: NowPlaying
     let isPreviewing: Bool
     let onTap: () -> Void
 
@@ -155,7 +151,7 @@ private struct PopularTrackRow: View {
         Button(action: onTap) {
             TrackRow(number: "\(index)", artwork: .server(track.album?.coverArt), title: track.effectiveTitle,
                      subtitle: subtitle, duration: track.duration.durationFormatted,
-                     nowPlaying: isPlaying || isPreviewing ? .playing : .none,
+                     nowPlaying: isPreviewing ? .playing : nowPlaying,
                      highlight: env.accent.color)
         }
         .buttonStyle(.plain)

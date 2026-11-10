@@ -8,7 +8,9 @@ import SwiftUI
 struct AlbumActionBarView: View {
     let album: Album
     let isOwned: Bool
-    let isThisAlbumPlaying: Bool
+    let albumIsAudible: Bool
+    /// This album holds the current session — dispatch only (pause/resume vs start over).
+    let albumOwnsSession: Bool
     let vm: AlbumDetailViewModel
     /// Opens the metadata editor; nil hides "edit details" (albums not in the library).
     var onEdit: (() -> Void)? = nil
@@ -54,10 +56,12 @@ struct AlbumActionBarView: View {
         }
     }
 
-    // Play shows Pause when THIS album is the one playing. The view's one amber control: a flat disc.
+    // Play shows Pause when THIS album's sound plays. The view's one amber control: a flat disc.
     private var playPauseButton: some View {
-        KimaHeroPlayButton(isPlaying: isThisAlbumPlaying) {
-            if isThisAlbumPlaying {
+        KimaHeroPlayButton(isPlaying: albumIsAudible) {
+            // The glyph keys on audible; the tap dispatches on session ownership (ADR 0001):
+            // pause/resume while this album holds the player, start over only when it doesn't.
+            if albumOwnsSession {
                 player.togglePlayPause()
             } else {
                 let tracks = album.tracksInOrder

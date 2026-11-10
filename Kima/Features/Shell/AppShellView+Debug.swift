@@ -34,6 +34,28 @@ extension AppShellView {
             }
             player.currentIndex = 0
         }
+        // UI-test hook (DebugPodcastSeed): a seeded podcast page + session, with no server and no audio.
+        // "-kima-fake-podcast paused|playing" starts the engine in that true state with a matching podcast
+        // session, so the transport mirrors can be probed against the page's derived displays (the build-20
+        // bug: hero/rows key on session identity, not engine state). syncHook nils like -kima-fake-queue.
+        if DebugPodcastSeed.isActive,
+           let seedData = DebugPodcastSeed.queueJson.data(using: .utf8),
+           let seedEpisodes = try? JSONDecoder().decode([Episode].self, from: seedData),
+           let seedCurrent = seedEpisodes.first {
+            player.syncHook = nil
+            player.playbackType = .podcastEpisode(podcastId: DebugPodcastSeed.seedId,
+                                                  episode: seedCurrent,
+                                                  queue: seedEpisodes)
+            player.longFormNowPlayingMeta = LongFormNowPlayingMeta(title: seedCurrent.title,
+                                                                   artist: "seed station",
+                                                                   coverURL: nil)
+            if DebugPodcastSeed.mode == "playing" {
+                player.engine.isPlaying = true
+                player.engine.status = .playing
+            } else {
+                player.engine.status = .paused
+            }
+        }
         // UI-test hooks: a fake song-path queue, then ask to replace it with a play-similar queue. Agreeing
         // flips the queue to "play similar"; cancelling leaves "song path". Plain: asked over the full
         // player. -shell: asked over the shell. -handoff: asked over the shell, then the player opens.

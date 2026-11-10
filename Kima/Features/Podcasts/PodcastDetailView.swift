@@ -87,11 +87,16 @@ struct PodcastDetailView: View {
 
     @ViewBuilder
     private func subscribedBody(_ podcast: Podcast) -> some View {
-        let playingEpisodeId: String? = {
+        let audible = player.isPlaying || player.isWaitingForAudio
+        // The episode the engine is audibly playing — true state, not session identity. (The build-20 bug:
+        // these reads keyed on "this show owns the session", so a paused session showed pause everywhere.)
+        let audibleEpisodeId: String? = {
+            guard audible else { return nil }
             if case .podcastEpisode(_, let ep, _) = player.playbackType { return ep.id }
             return nil
         }()
-        let isThisPodcastPlaying: Bool = {
+        // Whether this show holds the current session — dispatch (resume vs start) keys on this, display not.
+        let ownsSession: Bool = {
             if case .podcastEpisode(let pid, _, _) = player.playbackType { return pid == podcast.id }
             return false
         }()
@@ -114,7 +119,7 @@ struct PodcastDetailView: View {
 
                     PodcastCategoryPills(categories: podcast.categories ?? []) { chartCategoryId = $0 }
 
-                    subscribedActionBar(podcast, isPlaying: isThisPodcastPlaying, episodes: sortedEps)
+                    subscribedActionBar(podcast, ownsSession: ownsSession, audible: audible, episodes: sortedEps)
                         .padding(.horizontal, KimaSpacing.lg)
                         .padding(.top, KimaSpacing.xl)
 
@@ -127,7 +132,7 @@ struct PodcastDetailView: View {
                             ForEach(continueEps.prefix(4)) { ep in
                                 EpisodeRowView(
                                     episode: ep,
-                                    isPlaying: ep.id == playingEpisodeId,
+                                    isPlaying: ep.id == audibleEpisodeId,
                                     onPlay: { playOrToggle(ep, podcast: podcast, queue: sortedEps) },
                                     onMarkComplete: { Task { await vm.markEpisodeComplete(episode: ep, client: env.client) } },
                                     onDeleteProgress: { Task { await vm.deleteEpisodeProgress(episode: ep, client: env.client) } }
@@ -138,7 +143,7 @@ struct PodcastDetailView: View {
                         .padding(.bottom, KimaSpacing.xs)
                     }
 
-                    episodeListSection(podcast: podcast, episodes: sortedEps, playingId: playingEpisodeId)
+                    episodeListSection(podcast: podcast, episodes: sortedEps, playingId: audibleEpisodeId)
 
                     if let desc = podcast.description, !desc.strippingHTML.isEmpty {
                         AboutSection(text: desc.strippingHTML)
@@ -175,11 +180,13 @@ struct PodcastDetailView: View {
     // MARK: - Action bar (subscribed)
 
     @ViewBuilder
-    private func subscribedActionBar(_ podcast: Podcast, isPlaying: Bool, episodes: [Episode]) -> some View {
+    private func subscribedActionBar(_ podcast: Podcast, ownsSession: Bool, audible: Bool, episodes: [Episode]) -> some View {
         HStack(spacing: KimaSpacing.md) {
-            // Play Latest / Pause
-            KimaHeroPlayButton(isPlaying: isPlaying, label: isPlaying ? "pause" : "play latest episode") {
-                if isPlaying {
+            // Play Latest / Pause / Resume: pause shows only while this show's session actually runs. A tap on
+            // the current session toggles it — resuming picks up where it stopped, never starts over from zero.
+            let isPlaying = ownsSession && audible
+            KimaHeroPlayButton(isPlaying: isPlaying, label: isPlaying ? "pause" : (ownsSession ? "resume" : "play latest episode")) {
+                if ownsSession {
                     player.togglePlayPause()
                 } else if let ep = vm.playLatestEpisode() {
                     player.playPodcastEpisode(ep, podcast: podcast, queue: episodes, client: env.client)

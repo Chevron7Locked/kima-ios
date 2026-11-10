@@ -20,5 +20,7 @@ struct KimaHeroPlayButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label ?? (isPlaying ? "pause" : "play"))
+        // Stable test hook ("hero-play"): a detail page's one amber control; pages hold at most one.
+        .accessibilityIdentifier("hero-play")
     }
 }

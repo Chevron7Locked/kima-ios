@@ -42,6 +42,19 @@ final class PodcastDetailViewModel {
         self.activeId = id
         let raw = UserDefaults.standard.string(forKey: Self.sortKey(id))
         self.episodeSort = raw.flatMap(PodcastEpisodeSort.init(rawValue:)) ?? .newest
+        #if DEBUG
+        // UI-test hook (DebugPodcastSeed, "-kima-fake-podcast"): the seeded detail page renders from
+        // local fixture JSON, no server call — the launch args point the client at a refused port, so
+        // a page that fetched would hang or error. mode starts .subscribed, so the view's loadIfNeeded
+        // (which loads only on .loading/.error) skips the fetch and draws hero, action bar, continue
+        // stack and episode list straight from the seed.
+        if DebugPodcastSeed.isActive, id == DebugPodcastSeed.seedId,
+           let seedData = DebugPodcastSeed.podcastJson.data(using: .utf8),
+           let seedPodcast = try? JSONDecoder().decode(Podcast.self, from: seedData) {
+            seed(from: seedPodcast)
+            mode = .subscribed(seedPodcast)
+        }
+        #endif
     }
 
     private static func sortKey(_ id: String) -> String { "kima.podcast.sort.\(id)" }

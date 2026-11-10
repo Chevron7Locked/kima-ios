@@ -25,6 +25,8 @@ struct NowPlayingPlayButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(a11yLabel)
+        // Stable test hook ("now-playing-play"): the transport's play/pause, the control that mirrors engine state.
+        .accessibilityIdentifier("now-playing-play")
     }
 
     private var tint: Color {

@@ -145,7 +145,11 @@ struct EpisodeRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("play episode \(episode.title)")
+        // State-driven label: the row tells accessibility what a tap would do, so the icon's play/pause state
+        // is readable (and testable) rather than fixed to "play".
+        .accessibilityLabel("\(isPlaying ? "pause" : "play") episode \(episode.title)")
+        // Stable test hook ("episode-play"): an episode row's control; one per visible episode.
+        .accessibilityIdentifier("episode-play")
         .contextMenu { actions }
     }
 }

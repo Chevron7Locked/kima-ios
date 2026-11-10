@@ -91,6 +91,15 @@ struct PodcastsLibraryView: View {
           }
           .publishesNavDepth(tab: .podcasts, count: path.count, to: env.router)
         .task {
+            #if DEBUG
+            // UI-test hook (DebugPodcastSeed): land straight on the seeded detail page, skipping the library
+            // load — a seeded run points the client at a refused port, and the seeded page supplies its own
+            // data. path.isEmpty guards the re-appear (this task restarts), so nothing stacks on the seed.
+            if DebugPodcastSeed.isActive {
+                if path.isEmpty { path.append(.detail(id: DebugPodcastSeed.seedId)) }
+                return
+            }
+            #endif
             await vm.load(client: env.client)
             #if DEBUG
             // Screenshot deep-link: push the first subscribed show (see DebugDeepLink).

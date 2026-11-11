@@ -110,7 +110,7 @@ struct PodcastPreviewView: View {
         // buffer — and the tap dispatches on session ownership. The light is that answer ∧ engine
         // truth, so glyph and tap agree in every window.
         let holdsSession = player.ownsSampleSession(of: itunesId)
-        let isPlaying = player.isAudibleSample(of: itunesId)
+        let isAudible = player.isAudibleSample(of: itunesId)
         return Button {
             if holdsSession {
                 player.togglePlayPause()
@@ -119,7 +119,7 @@ struct PodcastPreviewView: View {
             }
         } label: {
             HStack(spacing: KimaSpacing.md) {
-                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                Image(systemName: isAudible ? "pause.fill" : "play.fill")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(KimaColor.textPrimary)
                     .frame(width: 36, height: 36)
@@ -142,7 +142,7 @@ struct PodcastPreviewView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isPlaying ? "pause first episode" : "play first episode, \(snippet.title)")
+        .accessibilityLabel(isAudible ? "pause first episode" : "play first episode, \(snippet.title)")
     }
 
     private func sampleMeta(_ snippet: PodcastSnippet) -> String {

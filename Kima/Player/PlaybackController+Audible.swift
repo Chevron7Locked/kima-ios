@@ -109,11 +109,17 @@ extension PlaybackController {
         return session.bookId == bookId
     }
 
+    /// The episode main playback holds, when a podcast episode does — the one destructure the
+    /// podcast questions share.
+    private var currentPodcastEpisode: Episode? {
+        guard case .podcastEpisode(_, let episode, _) = playbackType else { return nil }
+        return episode
+    }
+
     /// The episode main playback has sound from, when a podcast episode is doing it — the row
     /// light (build 20): nil while paused, so nothing claims playback.
     var audiblePodcastEpisodeId: String? {
-        guard isAudibleNow, case .podcastEpisode(_, let episode, _) = playbackType else { return nil }
-        return episode.id
+        isAudibleNow ? currentPodcastEpisode?.id : nil
     }
 
     /// Whether this show holds the current podcast session — dispatch only (resume vs play
@@ -128,8 +134,7 @@ extension PlaybackController {
     /// `playPodcastSample` mints, self-authenticating: a real episode of the same show never
     /// owns it, even while the sample flag lingers behind.
     func ownsSampleSession(of itunesId: String) -> Bool {
-        guard case .podcastEpisode(_, let episode, _) = playbackType else { return false }
-        return episode.id == Self.podcastSampleEpisodeId(for: itunesId)
+        currentPodcastEpisode?.id == Self.podcastSampleEpisodeId(for: itunesId)
     }
 
     /// Whether this show's first-episode sample is what main playback has sound from — the

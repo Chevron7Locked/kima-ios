@@ -149,6 +149,18 @@ final class PlaybackAudibleTests: XCTestCase {
         XCTAssertEqual(c.transportDisplayState, .retry)
     }
 
+    /// The overlap state pins display to dispatch's precedence (ADR 0001): with sound already out
+    /// and the status errored, this reads .playing — a tap pauses what you hear, never retries.
+    func testTransportPlayingOutranksError() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+        c.engine.isPlaying = true
+        c.engine.status = .error
+        XCTAssertEqual(c.transportDisplayState, .playing)
+        XCTAssertEqual(c.transportDisplayState.accessibilityLabel, "pause")
+    }
+
     /// An interruption that ended without resume intent reads .blocked — a play glyph whose tap starts sound.
     func testTransportReadsBlockedAfterEndedInterruption() throws {
         let c = controller()

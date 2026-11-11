@@ -138,7 +138,7 @@ struct PlaylistDetailTrackList<Header: View>: View {
 private struct PlaylistTrackRow: View {
     let item: PlaylistItem
     let index: Int
-    let nowPlaying: NowPlaying
+    let nowPlaying: RowDisplayState
     let isOwner: Bool
     let onPlay: () -> Void
     let onNext: () -> Void

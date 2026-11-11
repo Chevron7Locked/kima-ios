@@ -9,17 +9,20 @@ struct DiscoverFeaturedRow: View {
     let track: DiscoverTrack
     /// 1-based setlist index, continuing the count from the featured pick (which is 01).
     let index: Int
-    let isCurrentTrack: Bool
-    /// Main playback is audible (engine truth, ADR 0001); the row's own `isCurrentTrack` scopes it.
-    let isAudible: Bool
+    /// How this track's control reads (engine truth scoped by identity, ADR 0001) — the one
+    /// derived value behind the glyph, the tint, and what a tap honors.
+    let displayState: RowDisplayState
     let onPlay: () -> Void
     let onTogglePlay: () -> Void
     let onLike: () -> Void
 
     @Environment(AppEnvironment.self) private var env
 
+    /// This track holds the playback session — the dispatch question (ADR 0001).
+    private var isCurrent: Bool { displayState != .none }
+
     private func handleTap() {
-        if isCurrentTrack { onTogglePlay() } else { onPlay() }
+        if isCurrent { onTogglePlay() } else { onPlay() }
     }
 
     var body: some View {
@@ -27,7 +30,7 @@ struct DiscoverFeaturedRow: View {
             Text(String(format: "%02d", index))
                 .font(KimaType.body)
                 .monospacedDigit()
-                .foregroundStyle(isCurrentTrack ? env.accent.color : KimaColor.textMuted)
+                .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textMuted)
                 .frame(width: 24, alignment: .leading)
 
             ZStack {
@@ -44,16 +47,16 @@ struct DiscoverFeaturedRow: View {
                         .strokeBorder(KimaColor.hairline, lineWidth: 1)
                 )
 
-                if isCurrentTrack {
+                if isCurrent {
                     Circle().fill(KimaColor.discGlass).frame(width: 30, height: 30)
-                    DiscoverPlayGlyph(isPlaying: isAudible)
+                    DiscoverPlayGlyph(isPlaying: displayState == .playing)
                 }
             }
 
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                 Text(track.title.lowercased())
                     .font(KimaType.bodyStrong)
-                    .foregroundStyle(isCurrentTrack ? env.accent.color : KimaColor.textPrimary)
+                    .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textPrimary)
                     .lineLimit(1)
                 HStack(spacing: KimaSpacing.sm) {
                     DiscoverTierIndicator(tier: track.tier)
@@ -87,25 +90,28 @@ struct DiscoverFeaturedRow: View {
 struct DiscoverCrateRow: View {
     let track: DiscoverTrack
     let index: Int
-    let isCurrentTrack: Bool
-    /// Main playback is audible (engine truth, ADR 0001); the row's own `isCurrentTrack` scopes it.
-    let isAudible: Bool
+    /// How this track's control reads (engine truth scoped by identity, ADR 0001) — the one
+    /// derived value behind the glyph, the tint, and what a tap honors.
+    let displayState: RowDisplayState
     let onPlay: () -> Void
     let onTogglePlay: () -> Void
     let onLike: () -> Void
 
     @Environment(AppEnvironment.self) private var env
 
+    /// This track holds the playback session — the dispatch question (ADR 0001).
+    private var isCurrent: Bool { displayState != .none }
+
     private func handleTap() {
-        if isCurrentTrack { onTogglePlay() } else { onPlay() }
+        if isCurrent { onTogglePlay() } else { onPlay() }
     }
 
     var body: some View {
         HStack(spacing: KimaSpacing.md) {
             Button(action: handleTap) {
                 ZStack {
-                    if isCurrentTrack {
-                        DiscoverPlayGlyph(isPlaying: isAudible)
+                    if isCurrent {
+                        DiscoverPlayGlyph(isPlaying: displayState == .playing)
                     } else {
                         Text(String(format: "%02d", index))
                             .font(KimaType.caption)
@@ -132,7 +138,7 @@ struct DiscoverCrateRow: View {
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                 Text(track.title.lowercased())
                     .font(KimaType.headline)
-                    .foregroundStyle(isCurrentTrack ? env.accent.color : KimaColor.textPrimary)
+                    .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textPrimary)
                     .lineLimit(1)
                 Text(track.artist.lowercased())
                     .font(KimaType.caption)
@@ -153,7 +159,7 @@ struct DiscoverCrateRow: View {
         }
         .padding(.vertical, KimaSpacing.md)
         .padding(.horizontal, KimaSpacing.lg)
-        .background(isCurrentTrack ? KimaColor.surface : Color.clear)
+        .background(isCurrent ? KimaColor.surface : Color.clear)
         .contentShape(Rectangle())
         .onTapGesture { handleTap() }
     }

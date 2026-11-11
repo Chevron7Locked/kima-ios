@@ -7,9 +7,9 @@ import SwiftUI
 
 struct DiscoverFeaturedPick: View {
     let track: DiscoverTrack
-    let isCurrentTrack: Bool
-    /// Main playback is audible (engine truth, ADR 0001); the card's own `isCurrentTrack` scopes it.
-    let isAudible: Bool
+    /// How this track's control reads (engine truth scoped by identity, ADR 0001) — the one
+    /// derived value behind the glyph, the tint, and what a tap honors.
+    let displayState: RowDisplayState
     let onPlay: () -> Void
     let onTogglePlay: () -> Void
     let onLike: () -> Void
@@ -17,8 +17,11 @@ struct DiscoverFeaturedPick: View {
     @Environment(AppEnvironment.self) private var env
     @State private var palette: CoverArtPalette?
 
+    /// This track holds the playback session — the dispatch question (ADR 0001).
+    private var isCurrent: Bool { displayState != .none }
+
     private func handleTap() {
-        if isCurrentTrack { onTogglePlay() } else { onPlay() }
+        if isCurrent { onTogglePlay() } else { onPlay() }
     }
 
     private var glowTop: Color { palette?.vibrant     ?? KimaColor.ambient }
@@ -86,8 +89,8 @@ struct DiscoverFeaturedPick: View {
     private var playGlyph: some View {
         ZStack {
             Circle().fill(KimaColor.discGlass).frame(width: 34, height: 34)
-            DiscoverPlayGlyph(isPlaying: isCurrentTrack && isAudible,
-                              playColor: isCurrentTrack ? nil : KimaColor.textPrimary, playWeight: .semibold)
+            DiscoverPlayGlyph(isPlaying: displayState == .playing,
+                              playColor: isCurrent ? nil : KimaColor.textPrimary, playWeight: .semibold)
         }
         .allowsHitTesting(false)
     }
@@ -98,7 +101,7 @@ struct DiscoverFeaturedPick: View {
         VStack(alignment: .leading, spacing: KimaSpacing.sm) {
             Text(track.title.lowercased())
                 .font(KimaType.headline)
-                .foregroundStyle(isCurrentTrack ? env.accent.color : KimaColor.textPrimary)
+                .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textPrimary)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -115,7 +118,7 @@ struct DiscoverFeaturedPick: View {
             Spacer(minLength: KimaSpacing.sm)
 
             HStack(spacing: KimaSpacing.md) {
-                let audible = isCurrentTrack && isAudible
+                let audible = displayState == .playing
                 KimaPrimaryButton(title: audible ? "pause" : "play",
                                   systemImage: audible ? "pause.fill" : "play.fill",
                                   size: .compact, action: handleTap)

@@ -50,7 +50,7 @@ struct AlbumTrackListView: View {
         // Preview applies to: missing tracks, OR all tracks when album is unowned
         let needsPreview = isMissing || !isOwned
         let displayNo = track.displayTrackNo ?? track.trackNumber ?? track.trackNo ?? (indexInSection + 1)
-        let nowPlaying: NowPlaying = isMissing ? .none : player.displayState(of: track.id)
+        let nowPlaying: RowDisplayState = isMissing ? .none : player.displayState(of: track.id)
         let isPreviewing = vm.preview.previewingId == track.id
 
         AlbumTrackRow(
@@ -128,7 +128,7 @@ private struct AlbumTrackRow: View {
     let trackNumber: Int
     let isMissing: Bool
     let needsPreview: Bool
-    let nowPlaying: NowPlaying
+    let nowPlaying: RowDisplayState
     let isPreviewing: Bool
 
     @Environment(AppEnvironment.self) private var env

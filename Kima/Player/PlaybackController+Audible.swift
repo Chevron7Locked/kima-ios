@@ -70,7 +70,7 @@ extension PlaybackController {
 
     /// How a track's control reads: `.playing` while audible, `.current` while it holds the
     /// session paused, `.none` otherwise.
-    func displayState(of trackId: String) -> NowPlaying {
+    func displayState(of trackId: String) -> RowDisplayState {
         guard currentTrack?.id == trackId else { return .none }
         return isAudibleNow ? .playing : .current
     }

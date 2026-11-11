@@ -1,11 +1,11 @@
 import SwiftUI
 
-// MARK: - NowPlaying
+// MARK: - RowDisplayState
 
 /// The row-glyph triad: `.playing` while the item is audible, `.current` while it holds a paused
 /// session (tinted, findable, resumable), `.none` otherwise. Pages get it from
 /// `PlaybackController.displayState(of:)` — engine truth, scoped by identity (ADR 0001).
-enum NowPlaying { case none, current, playing }
+enum RowDisplayState { case none, current, playing }
 
 // MARK: - TrackRow
 
@@ -27,7 +27,7 @@ struct TrackRow<Trailing: View>: View {
     /// Album name for the wide-screen column; nil hides the column.
     var albumColumn: String? = nil
     var duration: String? = nil
-    var nowPlaying: NowPlaying = .none
+    var nowPlaying: RowDisplayState = .none
     /// The now-playing colour: the mood accent for library tracks, amber for previews.
     var highlight: Color = KimaColor.brand
     /// A track the user does not have: the row fades.
@@ -159,7 +159,7 @@ struct TrackRow<Trailing: View>: View {
 extension TrackRow where Trailing == EmptyView {
     init(number: String? = nil, moodColumn: Bool = false, mood: Color? = nil, artwork: Artwork = .none,
          title: String, subtitle: String? = nil, albumColumn: String? = nil, duration: String? = nil,
-         nowPlaying: NowPlaying = .none, highlight: Color = KimaColor.brand, isMissing: Bool = false) {
+         nowPlaying: RowDisplayState = .none, highlight: Color = KimaColor.brand, isMissing: Bool = false) {
         self.init(number: number, moodColumn: moodColumn, mood: mood, artwork: artwork, title: title, subtitle: subtitle,
                   albumColumn: albumColumn,
                   duration: duration, nowPlaying: nowPlaying, highlight: highlight, isMissing: isMissing,

@@ -104,8 +104,7 @@ struct DiscoverView: View {
             if let pick {
                 DiscoverFeaturedPick(
                     track: pick,
-                    isCurrentTrack: player.currentTrack?.id == pick.id,
-                    isAudible: player.isAudibleNow,
+                    displayState: player.displayState(of: pick.id),
                     onPlay: { handlePlayTrack(id: pick.id, in: playlist) },
                     onTogglePlay: { player.togglePlayPause() },
                     onLike: { Task { await vm.toggleLike(track: pick, using: env.client) } }
@@ -119,8 +118,7 @@ struct DiscoverView: View {
                         DiscoverFeaturedRow(
                             track: track,
                             index: i + 2,
-                            isCurrentTrack: player.currentTrack?.id == track.id,
-                            isAudible: player.isAudibleNow,
+                            displayState: player.displayState(of: track.id),
                             onPlay: { handlePlayTrack(id: track.id, in: playlist) },
                             onTogglePlay: { player.togglePlayPause() },
                             onLike: { Task { await vm.toggleLike(track: track, using: env.client) } }
@@ -137,8 +135,7 @@ struct DiscoverView: View {
                     DiscoverCrateRow(
                         track: track,
                         index: i + 2 + featured.count,
-                        isCurrentTrack: player.currentTrack?.id == track.id,
-                        isAudible: player.isAudibleNow,
+                        displayState: player.displayState(of: track.id),
                         onPlay: { handlePlayTrack(id: track.id, in: playlist) },
                         onTogglePlay: { player.togglePlayPause() },
                         onLike: { Task { await vm.toggleLike(track: track, using: env.client) } }
@@ -249,16 +246,19 @@ struct DiscoverView: View {
 
     // MARK: - Actions
 
+    /// The playlist's track ids — the one set behind both the light and the dispatch question.
+    private var playlistTrackIds: Set<String> {
+        Set(vm.playlist?.tracks.map(\.id) ?? [])
+    }
+
     /// Whether this playlist's sound is audible — the button's display (ADR 0001).
     private var playlistIsAudible: Bool {
-        guard let p = vm.playlist else { return false }
-        return player.isAudible(trackIds: Set(p.tracks.map(\.id)))
+        player.isAudible(trackIds: playlistTrackIds)
     }
 
     /// Whether this playlist holds the current session — dispatch only (resume vs start over).
     private var playlistOwnsSession: Bool {
-        guard let p = vm.playlist else { return false }
-        return player.ownsSession(forTrackIds: Set(p.tracks.map(\.id)))
+        player.ownsSession(forTrackIds: playlistTrackIds)
     }
 
     private func handlePlayToggle() {

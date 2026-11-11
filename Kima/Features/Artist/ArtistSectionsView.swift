@@ -130,7 +130,7 @@ private struct PopularTrackRow: View {
     let track: Track
     let index: Int
     let isOwned: Bool
-    let nowPlaying: NowPlaying
+    let nowPlaying: RowDisplayState
     let isPreviewing: Bool
     let onTap: () -> Void
 

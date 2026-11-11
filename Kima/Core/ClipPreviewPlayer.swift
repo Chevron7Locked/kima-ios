@@ -3,8 +3,10 @@ import Foundation
 import Observation
 
 /// One shared 30-second clip player for album, artist and browse-playlist screens.
-/// It pauses the main player while a clip plays and gives it back only when the clip
-/// ends on its own; a manual stop, a screen change, or the main player starting does not resume.
+/// It pauses main playback while a clip plays and gives it back only when the clip
+/// ends on its own; a manual stop or a screen change does not resume. The one yield rule:
+/// main playback going audible — the fetching half included, ADR 0001's `isAudibleNow` —
+/// silences the clip here, so no page watches for it (ticket 05).
 @MainActor
 @Observable
 final class ClipPreviewPlayer {
@@ -18,6 +20,8 @@ final class ClipPreviewPlayer {
     @ObservationIgnored private var resolvingId: String?
     @ObservationIgnored private weak var mainPlayer: PlaybackController?
     @ObservationIgnored private var pausedMain = false
+    /// Generation of the yield observation; bumping it retires any in-flight change callback.
+    @ObservationIgnored private var yieldToken = 0
 
     /// Tapping the playing clip stops it; tapping another starts it. Re-taps are ignored
     /// while a stream address is still being fetched.
@@ -35,6 +39,7 @@ final class ClipPreviewPlayer {
     }
 
     func stop() {
+        yieldToken += 1   // retire the yield observation with the clip it guarded
         avPlayer?.pause()
         removeTokens()
         avPlayer = nil
@@ -44,10 +49,10 @@ final class ClipPreviewPlayer {
 
     private func start(id: String, url: URL, mainPlayer: PlaybackController) {
         stop()
+        self.mainPlayer = mainPlayer
         if mainPlayer.isPlaying {
             mainPlayer.pause()
             pausedMain = true
-            self.mainPlayer = mainPlayer
         }
         let item = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: item)
@@ -61,6 +66,29 @@ final class ClipPreviewPlayer {
         player.play()
         avPlayer = player
         previewingId = id
+        yieldWhenMainGoesAudible(mainPlayer)
+    }
+
+    /// The one yield rule for every preview page (ticket 05): main playback becoming audible —
+    /// `isAudibleNow`, fetching included — silences this clip before the first byte lands, and
+    /// never resumes main: the new thing won. Re-arm loop per CarPlayNowPlaying's playback
+    /// tracking; each arm takes a fresh token so a superseded or stopped clip's callback dies at
+    /// the guard instead of double-arming.
+    private func yieldWhenMainGoesAudible(_ player: PlaybackController) {
+        yieldToken += 1
+        let token = yieldToken
+        withObservationTracking {
+            _ = player.isAudibleNow
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self, self.yieldToken == token, let main = self.mainPlayer else { return }
+                if main.isAudibleNow {
+                    self.stop()
+                } else {
+                    self.yieldWhenMainGoesAudible(main)
+                }
+            }
+        }
     }
 
     private func finishNaturally() {

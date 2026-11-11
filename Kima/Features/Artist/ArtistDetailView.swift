@@ -115,9 +115,6 @@ private struct ArtistDetailContent: View {
         }
         }
         .onDisappear { vm.preview.stop() }
-        .onChange(of: player.isPlaying) { _, playing in
-            if playing { vm.preview.stop() }
-        }
         .sheet(isPresented: $showMetadataEditor) {
             MetadataEditorView(kind: .artist(artist)) {
                 Task { await vm.load(id: artist.id, name: artist.effectiveName, using: env.client) }

@@ -114,9 +114,6 @@ struct AlbumDetailView: View {
                 catch { toast.show("couldn't refresh album", style: .error) }
             }
             .onDisappear { vm.preview.stop() }
-            .onChange(of: env.player.isPlaying) { _, playing in
-                if playing { vm.preview.stop() }
-            }
         }
     }
 }

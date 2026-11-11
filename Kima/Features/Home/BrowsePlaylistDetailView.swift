@@ -63,9 +63,6 @@ struct BrowsePlaylistDetailView: View {
         .sheet(isPresented: $showImport) {
             ImportView(prefillURL: playlist.url).appEnvironment(env, toast)
         }
-        .onChange(of: player.isPlaying) { _, isNowPlaying in
-            if isNowPlaying { previewer.stop() }
-        }
     }
 
     // MARK: - Hero

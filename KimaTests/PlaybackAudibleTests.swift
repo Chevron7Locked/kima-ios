@@ -96,6 +96,39 @@ final class PlaybackAudibleTests: XCTestCase {
         XCTAssertTrue(c.isAudible(trackIds: mine))         // steady through buffering
     }
 
+    // MARK: - ownsSession(where:): the artist-hero dispatch
+
+    /// The artist-page question — its membership is an id-or-name rule, not an id set. A paused
+    /// owned session still answers "resume" (name fallback included); another artist's never
+    /// does, so that tap starts fresh. Display stays with `isAudible`; this only dispatches
+    /// (ADR 0001).
+    func testPredicateOwnershipDispatchesResumeWhilePaused() throws {
+        let c = controller()
+        let aurora: (Track) -> Bool = { $0.artist?.id == "ar1" || $0.artist?.name == "Aurora" }
+        c.queue = [
+            Track.fixture("a", artist: .ref(id: "ar1", name: "Aurora")),
+            Track.fixture("b", artist: .ref(id: "ar2", name: "Kai")),
+            Track.fixture("c", artist: .ref(id: nil, name: "Aurora")),  // album-credit case
+        ]
+        c.currentIndex = 0
+        XCTAssertFalse(c.isAudible(where: aurora))       // silent to the eye…
+        XCTAssertTrue(c.ownsSession(where: aurora))      // …resumable to the tap
+        c.currentIndex = 1
+        XCTAssertFalse(c.ownsSession(where: aurora))     // another artist's session: start over
+        c.currentIndex = 2
+        XCTAssertTrue(c.ownsSession(where: aurora))      // owned by name alone still resumes
+        c.currentIndex = 0
+        c.engine.isPlaying = true
+        XCTAssertTrue(c.isAudible(where: aurora))        // its sound plays…
+        XCTAssertTrue(c.ownsSession(where: aurora))      // …and the same tap now pauses
+    }
+
+    /// No session at all: nothing owns, every hero starts fresh.
+    func testPredicateOwnershipFalseWithNoSession() throws {
+        let c = controller()
+        XCTAssertFalse(c.ownsSession { _ in true })
+    }
+
     // MARK: - isAudible(bookId:)
 
     /// The audiobook-card question: lit only while that book's sound plays — not for holding the

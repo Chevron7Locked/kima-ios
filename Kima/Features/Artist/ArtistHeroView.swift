@@ -153,9 +153,11 @@ struct ArtistHeroView: View {
         HStack(spacing: KimaSpacing.md) {
             let hasOwned = !ownedAlbums.isEmpty
 
-            // Play / Pause — the view's one amber control, a flat disc.
+            // Play / Pause — the view's one amber control, a flat disc. The glyph keys on
+            // audible; the tap dispatches on session ownership (ADR 0001): pause/resume while
+            // this artist holds the player, fetch a fresh queue only when it doesn't.
             KimaHeroPlayButton(isPlaying: artistIsAudible, label: "play all") {
-                if artistIsAudible { player.pause() }
+                if artistOwnsSession { player.togglePlayPause() }
                 else { onPlayAll() }
             }
             .disabled(!hasOwned && source == .library)
@@ -217,11 +219,18 @@ struct ArtistHeroView: View {
         count > 0 ? "download \(albumCount(count))?" : "download all albums?"
     }
 
-    /// Whether this artist's sound is what plays: audible ∧ the page's own membership rule,
-    /// name fallback included (ADR 0001).
-    private var artistIsAudible: Bool {
-        player.isAudible { $0.artist?.id == artist.id || $0.artist?.name == artist.name }
+    /// The page's own membership rule, handed to the controller for both questions: this
+    /// artist's tracks — id first, name as fallback (some lists credit only the name).
+    private func isThisArtist(_ track: Track) -> Bool {
+        track.artist?.id == artist.id || track.artist?.name == artist.name
     }
+
+    /// Whether this artist's sound is what plays — the light (ADR 0001).
+    private var artistIsAudible: Bool { player.isAudible(where: isThisArtist) }
+
+    /// Whether this artist holds the current session — dispatch only: resume vs start over,
+    /// never a light (ADR 0001). True while paused, so the hero resumes instead of re-fetching.
+    private var artistOwnsSession: Bool { player.ownsSession(where: isThisArtist) }
 }
 
 // MARK: - Backdrop

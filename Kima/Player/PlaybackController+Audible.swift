@@ -89,11 +89,18 @@ extension PlaybackController {
         isAudible { trackIds.contains($0.id) }
     }
 
-    /// Whether one of `trackIds` holds the current session — dispatch only (resume vs start
-    /// over), never a light (ADR 0001). The owns-session question for a track-id-set page.
+    /// Whether the current session is one the page's content — dispatch only (resume vs start
+    /// over), never a light (ADR 0001). The predicate states the page's own membership rule
+    /// (artist: id-or-name fallback); the controller owns what *holds the session* means.
+    func ownsSession(where isIn: (Track) -> Bool) -> Bool {
+        guard let currentTrack else { return false }
+        return isIn(currentTrack)
+    }
+
+    /// The predicate form for a page whose membership is a track-id set (playlist / album hero):
+    /// the page hands over its ids, never computes ownership itself.
     func ownsSession(forTrackIds trackIds: Set<String>) -> Bool {
-        guard let id = currentTrack?.id else { return false }
-        return trackIds.contains(id)
+        ownsSession { trackIds.contains($0.id) }
     }
 
     /// Whether this audiobook is what main playback has sound from — the card / detail question.

@@ -267,4 +267,53 @@ final class PlaybackAudibleTests: XCTestCase {
         c.engine.status = .buffering
         XCTAssertEqual(c.audiblePodcastEpisodeId, "ep1")    // steady through buffering
     }
+
+    // MARK: - isAudibleSample(of:): the preview page's sample row (ticket 04)
+
+    /// The sample row asks one question — is this show's sample what main playback is sounding
+    /// from? Samples *are* main playback (they play through the main player, saving nothing), so
+    /// the answer is the honest audible one: pause while audible, held through both halves of the
+    /// fetch window — where the old raw read blinked to play mid-fetch while its tap dispatched
+    /// pause (ADR 0001).
+    func testSampleReadsAudibleIncludingWhileFetching() throws {
+        let c = controller()
+        let sample = try Episode.fixture("sample-sh1")
+        c.playbackType = .podcastEpisode(podcastId: "sh1", episode: sample, queue: [sample])
+        XCTAssertFalse(c.isAudibleSample(of: "sh1"))        // silent holder: play reading
+        c.engine.isPlaying = true
+        XCTAssertTrue(c.isAudibleSample(of: "sh1"))         // sound out: pause reading
+        c.engine.isPlaying = false
+        c.engine.wantsPlayback = true
+        c.engine.status = .loading                          // the bug's window: bytes on the way
+        XCTAssertTrue(c.isAudibleSample(of: "sh1"))         // still pause, never a blink
+        c.engine.status = .buffering
+        XCTAssertTrue(c.isAudibleSample(of: "sh1"))         // and through buffer
+    }
+
+    /// Display and tap agree in every window, because the light *is* the dispatch answer conjoined
+    /// with engine truth: a silent sample reads play and its tap resumes; a real episode of the
+    /// same show is not the sample even while the sample flag lingers, so display says play and
+    /// tap starts the sample fresh; another show's audible sample never reads as ours.
+    func testSampleDisplayAndDispatchAgreeInEveryWindow() throws {
+        let c = controller()
+        let sample = try Episode.fixture("sample-sh1")
+        c.playbackType = .podcastEpisode(podcastId: "sh1", episode: sample, queue: [sample])
+        XCTAssertFalse(c.isAudibleSample(of: "sh1"))        // play glyph…
+        XCTAssertTrue(c.ownsSampleSession(of: "sh1"))       // …whose tap resumes the silent sample
+        c.engine.isPlaying = true
+        XCTAssertTrue(c.isAudibleSample(of: "sh1"))         // sound out: pause glyph, tap pauses
+        c.engine.isPlaying = false
+
+        c.podcastSampleItunesId = "sh1"                     // the flag a real play may leave behind
+        let real = try Episode.fixture("ep9")
+        c.playbackType = .podcastEpisode(podcastId: "sh1", episode: real, queue: [real])
+        XCTAssertFalse(c.isAudibleSample(of: "sh1"))        // a real episode is not the sample…
+        XCTAssertFalse(c.ownsSampleSession(of: "sh1"))      // …so play shows and tap starts fresh
+
+        let other = try Episode.fixture("sample-sh2")
+        c.playbackType = .podcastEpisode(podcastId: "sh2", episode: other, queue: [other])
+        c.engine.isPlaying = true
+        XCTAssertFalse(c.isAudibleSample(of: "sh1"))        // another show's sample is never ours
+        XCTAssertTrue(c.isAudibleSample(of: "sh2"))
+    }
 }

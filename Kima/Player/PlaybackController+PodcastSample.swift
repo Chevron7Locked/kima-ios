@@ -4,6 +4,10 @@ import Foundation
 
 extension PlaybackController {
 
+    /// The id a first-episode sample is played under. Minted only here, so an episode carrying it
+    /// *is* the sample — membership (ADR 0001's row light) keys on it instead of a side flag.
+    static func podcastSampleEpisodeId(for itunesId: String) -> String { "sample-\(itunesId)" }
+
     /// Plays a not-followed show's first episode in the main player (lock screen, scrubbing) from the server's
     /// sample stream. Unlike a followed episode it saves no position, is never marked finished, and stops at its end.
     /// The episode's podcast id is the Apple id, so "go to show" opens the preview page.
@@ -12,7 +16,7 @@ extension PlaybackController {
         stopLongForm()
 
         let episode = Episode(
-            id: "sample-\(itunesId)", title: snippet.title, description: nil, duration: snippet.duration,
+            id: Self.podcastSampleEpisodeId(for: itunesId), title: snippet.title, description: nil, duration: snippet.duration,
             publishedAt: snippet.publishedAt, episodeNumber: nil, season: nil, progress: nil,
             imageUrl: nil, isDownloaded: nil, audioUrl: nil
         )
@@ -28,10 +32,5 @@ extension PlaybackController {
         engine.claimAudioSession(mode: .spokenAudio)
         loadPodcastEpisode(podcastId: itunesId, episode: episode, seekTo: 0, autoplay: true)
         nowPlayingHook?()
-    }
-
-    /// True while the sample of this show is the item in the player.
-    func isPlayingSample(of itunesId: String) -> Bool {
-        podcastSampleItunesId == itunesId
     }
 }

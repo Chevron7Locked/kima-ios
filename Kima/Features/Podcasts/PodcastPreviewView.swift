@@ -105,10 +105,14 @@ struct PodcastPreviewView: View {
 
     /// The first episode, played in the main player without saving anything; tapping again pauses or resumes.
     private func sampleRow(_ snippet: PodcastSnippet) -> some View {
-        let isCurrent = player.isPlayingSample(of: itunesId)
-        let isPlaying = isCurrent && player.isPlaying
+        // Two questions to the module, never a page-local conjunction (ADR 0001): the light asks
+        // whether the sample is what main playback is sounding from — held through fetch and
+        // buffer — and the tap dispatches on session ownership. The light is that answer ∧ engine
+        // truth, so glyph and tap agree in every window.
+        let holdsSession = player.ownsSampleSession(of: itunesId)
+        let isPlaying = player.isAudibleSample(of: itunesId)
         return Button {
-            if isCurrent {
+            if holdsSession {
                 player.togglePlayPause()
             } else {
                 player.playPodcastSample(snippet, of: preview, itunesId: itunesId, client: env.client)

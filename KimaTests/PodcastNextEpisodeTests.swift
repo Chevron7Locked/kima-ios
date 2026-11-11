@@ -130,7 +130,7 @@ final class PodcastNextEpisodeTests: XCTestCase {
             #"{"title":"Show","author":"A","isSubscribed":false}"#.utf8))
         let snippet = PodcastSnippet(title: "First", publishedAt: "2020-01-01T00:00:00Z", duration: 1200)
         c.playPodcastSample(snippet, of: preview, itunesId: "100", client: .stubbed())
-        XCTAssertTrue(c.isPlayingSample(of: "100"))
+        XCTAssertTrue(c.ownsSampleSession(of: "100"))
         c.engine.status = .paused
         c.engine.currentTime = 600
         c.saveProgress()

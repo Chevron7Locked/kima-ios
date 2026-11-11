@@ -122,4 +122,22 @@ extension PlaybackController {
         if case .podcastEpisode(let pid, _, _) = playbackType { return pid == podcastId }
         return false
     }
+
+    /// Whether this show's sample holds the playback session — dispatch for the sample row
+    /// (resume vs start fresh), never a light (ADR 0001). Membership keys on the id only
+    /// `playPodcastSample` mints, self-authenticating: a real episode of the same show never
+    /// owns it, even while the sample flag lingers behind.
+    func ownsSampleSession(of itunesId: String) -> Bool {
+        guard case .podcastEpisode(_, let episode, _) = playbackType else { return false }
+        return episode.id == Self.podcastSampleEpisodeId(for: itunesId)
+    }
+
+    /// Whether this show's first-episode sample is what main playback has sound from — the
+    /// preview page's row question. A sample *is* main playback (it plays through the main
+    /// player, saving nothing), so it gets the honest audible answer: pause held through fetch
+    /// and buffer, never a mid-fetch blink to play (ADR 0001). The light is the dispatch answer
+    /// conjoined with engine truth, so display and tap agree by construction in every window.
+    func isAudibleSample(of itunesId: String) -> Bool {
+        isAudibleNow && ownsSampleSession(of: itunesId)
+    }
 }

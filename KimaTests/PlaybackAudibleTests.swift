@@ -111,6 +111,7 @@ final class PlaybackAudibleTests: XCTestCase {
             Track.fixture("c", artist: .ref(id: nil, name: "Aurora")),  // album-credit case
         ]
         c.currentIndex = 0
+        c.engine.status = .paused                        // the bug's exact state, literally
         XCTAssertFalse(c.isAudible(where: aurora))       // silent to the eye…
         XCTAssertTrue(c.ownsSession(where: aurora))      // …resumable to the tap
         c.currentIndex = 1

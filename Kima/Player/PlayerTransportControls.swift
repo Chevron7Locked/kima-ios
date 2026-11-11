@@ -123,46 +123,38 @@ struct PlayerTransportControls: View {
             playPauseCircle.frame(width: 72, height: 72)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(player.isPlaying || player.isWaitingForAudio ? "pause" : "play")
-        .accessibilityValue(isWaiting ? "loading" : "")
+        .accessibilityLabel(displayValue.accessibilityLabel)
+        .accessibilityValue(displayValue.accessibilityValue)
     }
 
     // MARK: - Play/Pause circle
+
+    /// The one derived display value the mini bar shares (ADR 0001): this circle renders it and
+    /// reads no engine mirror directly.
+    private var displayValue: PlaybackController.TransportDisplayState { player.transportDisplayState }
 
     @ViewBuilder
     private var playPauseCircle: some View {
         ZStack {
             // The mini player's tinted-glass disc, scaled up with a little more of the song's colour.
-            // Loading / buffering: a spinner in a faint ring, unmistakably not the playing state.
-            NowPlayingDisc(tint: playButtonTint, wash: isWaiting ? 0.10 : 0.30)
+            // A fetch: a spinner in a faint ring, unmistakably not the playing state.
+            NowPlayingDisc(tint: playButtonTint, wash: displayValue == .waiting ? 0.10 : 0.30)
 
-            if isWaiting {
-                ProgressView().controlSize(.large).tint(KimaColor.textPrimary)
-            } else {
-                Image(systemName: playPauseIcon)
+            if let image = displayValue.systemImage {
+                Image(systemName: image)
                     .contentTransition(.symbolEffect(.replace))
                     .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(KimaColor.textPrimary)
-                    .offset(x: player.isPlaying ? 0 : 2)
+                    .offset(x: displayValue == .playing ? 0 : 2)
+            } else {
+                ProgressView().controlSize(.large).tint(KimaColor.textPrimary)
             }
         }
     }
 
-    private var isWaiting: Bool {
-        player.engineStatus == .loading || player.engineStatus == .buffering
-    }
-
     private var playButtonTint: Color {
-        if player.engineStatus == .error { return KimaColor.danger }
-        return env.accent.color.opacity(isWaiting ? 0.35 : 1.0)
-    }
-
-    private var playPauseIcon: String {
-        switch player.engineStatus {
-        case .error:    return "arrow.clockwise"
-        case .blocked:  return "play.fill"
-        default: return player.isPlaying ? "pause.fill" : "play.fill"
-        }
+        if displayValue == .retry { return KimaColor.danger }
+        return env.accent.color.opacity(displayValue == .waiting ? 0.35 : 1.0)
     }
 
     // MARK: - Secondary cluster (labeled "setlist" row)

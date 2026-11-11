@@ -24,44 +24,35 @@ struct NowPlayingPlayButton: View {
             .kimaHitTarget(growsLayout: false)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(a11yLabel)
+        .accessibilityLabel(displayValue.accessibilityLabel)
+        .accessibilityValue(displayValue.accessibilityValue)
         // Stable test hook ("now-playing-play"): the transport's play/pause, the control that mirrors engine state.
         .accessibilityIdentifier("now-playing-play")
     }
 
-    private var tint: Color {
-        if player.audioError != nil { return KimaColor.danger }
-        // A faint ring while buffering, so the spinner state never reads as playing.
-        if player.isBuffering       { return env.accent.color.opacity(0.35) }
-        return env.accent.color
-    }
+    /// The one derived display value (ADR 0001): glyph, spinner, retry, tint and label all read it.
+    private var displayValue: PlaybackController.TransportDisplayState { player.transportDisplayState }
 
-    /// Ink glyph on the dark disc.
-    @ViewBuilder
-    private var icon: some View {
-        let fg = KimaColor.textPrimary
-        if player.audioError != nil {
-            Image(systemName: "arrow.clockwise")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(fg)
-        } else if player.isBuffering {
-            ProgressView().controlSize(.small).tint(fg)
-        } else if player.isPlaying {
-            Image(systemName: "pause.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(fg)
-        } else {
-            Image(systemName: "play.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(fg)
-                .offset(x: 1.5)   // optical centering for the play triangle
+    private var tint: Color {
+        switch displayValue {
+        case .retry:  return KimaColor.danger
+        case .waiting: return env.accent.color.opacity(0.35)  // faint ring, so a spinner never reads as playing
+        default:       return env.accent.color
         }
     }
 
-    private var a11yLabel: String {
-        if player.audioError != nil { return "retry playback" }
-        if player.isBuffering       { return "buffering" }
-        return player.isPlaying ? "pause" : "play"
+    /// Ink glyph on the dark disc; nil glyph (a fetch) draws the spinner instead.
+    @ViewBuilder
+    private var icon: some View {
+        let fg = KimaColor.textPrimary
+        if let image = displayValue.systemImage {
+            Image(systemName: image)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(fg)
+                .offset(x: displayValue.showsPlayGlyph ? 1.5 : 0)  // optical centering for the play triangle
+        } else {
+            ProgressView().controlSize(.small).tint(fg)
+        }
     }
 }
 

@@ -1,5 +1,8 @@
 import XCTest
 
+/// SMOKE — the end-to-end proof of the transport display contract (ADR 0001); run it whenever
+/// transport display derivation changes. The glyph matrix itself is unit-tested at the controller
+/// seam (`PlaybackAudibleTests`); this suite proves the real views render it in agreement.
 /// Podcast transport sync (the build-20 bug report): with a podcast session paused, nothing on the detail page
 /// may claim it is playing; with it playing, everything must say so. The mini player's transport disc mirrors
 /// engine state; the hero and episode rows derive their display from the session — this bug lives in that

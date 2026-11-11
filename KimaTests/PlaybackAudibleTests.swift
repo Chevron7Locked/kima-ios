@@ -114,6 +114,95 @@ final class PlaybackAudibleTests: XCTestCase {
         XCTAssertTrue(c.isAudible(bookId: "bk1"))    // fetching its sound still counts
     }
 
+    // MARK: - transportDisplayState: the one value both transport controls render
+
+    /// The engine is putting out sound: the transport reads .playing — pause glyph, a tap stops what you hear.
+    func testTransportReadsPlayingWhileAudible() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+        c.engine.isPlaying = true
+        XCTAssertEqual(c.transportDisplayState, .playing)
+    }
+
+    /// A session fetching its sound bytes reads .waiting — the pause-consistent hold (a tap now
+    /// stops the fetch), in both the loading and the buffering half of the window.
+    func testTransportHoldsWaitingWhileFetchingSound() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+        c.engine.wantsPlayback = true
+        c.engine.status = .loading
+        XCTAssertEqual(c.transportDisplayState, .waiting)
+        c.engine.status = .buffering
+        XCTAssertEqual(c.transportDisplayState, .waiting)
+    }
+
+    /// An errored item reads .retry — the arrow a tap acts on — even mid-fetch-want, never a mask.
+    func testTransportReadsRetryOnError() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+        c.engine.wantsPlayback = true
+        c.engine.status = .error
+        c.engine.audioError = "stream died"
+        XCTAssertEqual(c.transportDisplayState, .retry)
+    }
+
+    /// An interruption that ended without resume intent reads .blocked — a play glyph whose tap starts sound.
+    func testTransportReadsBlockedAfterEndedInterruption() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+        c.engine.status = .blocked
+        XCTAssertEqual(c.transportDisplayState, .blocked)
+    }
+
+    /// The silent tail maps honestly for downstream (ticket 03): a held session reads .paused,
+    /// nothing loaded — or staged but not started — reads .stopped. Both show play; a tap starts sound.
+    func testTransportSilentTailMapsEngineRestingStates() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+        c.engine.status = .paused
+        XCTAssertEqual(c.transportDisplayState, .paused)
+        c.engine.status = .loading   // staged, playback not wanted: still resting, not waiting
+        XCTAssertEqual(c.transportDisplayState, .stopped)
+        c.engine.status = .idle
+        XCTAssertEqual(c.transportDisplayState, .stopped)
+    }
+
+    /// The display value carries its own glyph and label — both controls render one answer.
+    /// Glyphs and labels are today's transport renderings; a label says what a tap honors (ADR 0001).
+    func testTransportDisplayCarriesGlyphAndLabel() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+
+        c.engine.isPlaying = true
+        XCTAssertEqual(c.transportDisplayState.systemImage, "pause.fill")
+        XCTAssertEqual(c.transportDisplayState.accessibilityLabel, "pause")
+
+        c.engine.isPlaying = false
+        c.engine.wantsPlayback = true
+        c.engine.status = .buffering
+        XCTAssertNil(c.transportDisplayState.systemImage)              // spinner instead of a glyph
+        XCTAssertEqual(c.transportDisplayState.accessibilityLabel, "pause")  // a tap stops the fetch
+        XCTAssertEqual(c.transportDisplayState.accessibilityValue, "loading")
+
+        c.engine.wantsPlayback = false
+        c.engine.status = .error
+        XCTAssertEqual(c.transportDisplayState.systemImage, "arrow.clockwise")
+        XCTAssertEqual(c.transportDisplayState.accessibilityLabel, "retry playback")
+
+        for status in [EngineStatus.blocked, .paused, .idle] {         // the play-glyph family
+            c.engine.status = status
+            XCTAssertEqual(c.transportDisplayState.systemImage, "play.fill")
+            XCTAssertEqual(c.transportDisplayState.accessibilityLabel, "play")
+            XCTAssertEqual(c.transportDisplayState.accessibilityValue, "")
+        }
+    }
+
     // MARK: - Podcast: audible episode + session ownership (build-20's shape)
 
     /// The detail page's two reads: rows light the audibly playing episode only, and the hero

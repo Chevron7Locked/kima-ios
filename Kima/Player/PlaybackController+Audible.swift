@@ -12,6 +12,62 @@ extension PlaybackController {
     /// display read keys on (ADR 0001). Bounded by the stall watchdog, so it is safe to show.
     var isAudibleNow: Bool { isPlaying || isWaitingForAudio }
 
+    /// What the transport play/pause controls show for the current session — engine truth in
+    /// display vocabulary, so glyph selection leaves the view bodies (ADR 0001).
+    enum TransportDisplayState: Equatable {
+        case playing
+        case waiting
+        case retry
+        case blocked
+        case paused
+        case stopped
+
+        /// The glyph for this state; nil while waiting — the circle renders a spinner there, so
+        /// a fetch never reads as a resting play control.
+        var systemImage: String? {
+            switch self {
+            case .playing: return "pause.fill"
+            case .waiting: return nil
+            case .retry:   return "arrow.clockwise"
+            case .blocked, .paused, .stopped: return "play.fill"
+            }
+        }
+
+        /// What a tap on the control honors — the label says exactly that (ADR 0001).
+        var accessibilityLabel: String {
+            switch self {
+            case .playing, .waiting: return "pause"
+            case .retry:             return "retry playback"
+            case .blocked, .paused, .stopped: return "play"
+            }
+        }
+
+        /// The play triangle, wherever it renders — the glyph that needs a rightward nudge for
+        /// optical centering (the symbol name itself must not leak into view bodies).
+        var showsPlayGlyph: Bool { systemImage == "play.fill" }
+
+        /// VoiceOver value while fetching: the label stays honest, the state reads as loading.
+        var accessibilityValue: String { self == .waiting ? "loading" : "" }
+    }
+
+    /// The one answer both transport controls render: pause while audible — sound out, or bytes on
+    /// the way — the retry arrow over a dead item, and a fetch never shows the play glyph a tap
+    /// would contradict (ADR 0001). Reads go in `togglePlayPause()`'s precedence (playing first) so
+    /// display can never disagree with dispatch; every engine error path clears `isPlaying` before
+    /// setting `.error`, so that order is an invariant, not a race. The silent tail names its
+    /// resting kind so downstream surfaces (lock screen, ticket 03) map without touching engine
+    /// mirrors.
+    var transportDisplayState: TransportDisplayState {
+        if isPlaying { return .playing }
+        if engineStatus == .error { return .retry }
+        if isWaitingForAudio { return .waiting }
+        switch engineStatus {
+        case .blocked: return .blocked
+        case .paused:  return .paused
+        default:       return .stopped
+        }
+    }
+
     /// How a track's control reads: `.playing` while audible, `.current` while it holds the
     /// session paused, `.none` otherwise.
     func displayState(of trackId: String) -> NowPlaying {

@@ -23,6 +23,15 @@ final class PodcastTransportUITests: XCTestCase {
                       "the seeded detail page did not appear")
     }
 
+    /// Launch and prove the seed first: the transport disc mirrors engine state, so its label is
+    /// the oracle for "the engine really started in `mode`" — every test reads it before asking
+    /// anything derived.
+    private func launchValidated(seeded mode: String, transportShows expected: String) {
+        launch(seeded: mode)
+        XCTAssertTrue(transport.waitForExistence(timeout: 10), "the mini player did not show the seeded session")
+        XCTAssertEqual(transport.label, expected, "seed validity: \(mode) engine state did not reach the transport")
+    }
+
     /// The mini player's transport disc — the control that mirrors engine state.
     private var transport: XCUIElement { app.buttons["now-playing-play"].firstMatch }
 
@@ -37,10 +46,7 @@ final class PodcastTransportUITests: XCTestCase {
 
     /// Engine paused: the transport proves the seed, and no page control may read as playing.
     func testPausedSessionNeverReadsAsPlaying() throws {
-        launch(seeded: "paused")
-
-        XCTAssertTrue(transport.waitForExistence(timeout: 10), "the mini player did not show the seeded session")
-        XCTAssertEqual(transport.label, "play", "seed validity: the engine did not start paused")
+        launchValidated(seeded: "paused", transportShows: "play")
 
         // Probed before any scroll: a swipe-up gesture collapses the mini player. "resume" pins both halves:
         // not playing (display truth) and this show owning the session (so the fix can't pass by losing it).
@@ -56,16 +62,48 @@ final class PodcastTransportUITests: XCTestCase {
         }
     }
 
+    /// The published lock-screen / Control Center state, read back from the system's now-playing
+    /// center by the DEBUG probe (ticket 03). This is what the lock screen offers to a tap.
+    private var lockScreen: XCUIElement { app.staticTexts["lock-screen-published"] }
+
+    /// The publish lands on launch; wait for the reading rather than race it (marker precedent:
+    /// VibeReplaceUITests.expectOrigin).
+    private func expectPublished(_ name: String) {
+        XCTAssertTrue(lockScreen.waitForExistence(timeout: 10), "the lock-screen probe never mounted")
+        expectation(for: NSPredicate(format: "label == %@", name), evaluatedWith: lockScreen)
+        waitForExpectations(timeout: 10)
+    }
+
+    // MARK: - Lock screen (ticket 03): the published state is the derived one, not engine identity
+
+    /// The bug's last surface: during a fetch window the lock screen offered play while a tap
+    /// paused. It must offer pause — published playing — while the app itself holds waiting.
+    func testFetchWindowLockScreenShowsPause() throws {
+        launchValidated(seeded: "waiting", transportShows: "pause")   // the app holds waiting
+        expectPublished("playing")   // lock screen shows pause; a tap stops the fetch
+    }
+
+    /// A paused session publishes paused: the lock screen offers play, and a tap resumes.
+    func testPausedSessionLockScreenShowsPlay() throws {
+        launchValidated(seeded: "paused", transportShows: "play")
+        expectPublished("paused")
+    }
+
+    /// A resting session publishes stopped — the two-valued publish could only ever say paused.
+    func testStoppedSessionLockScreenSaysStopped() throws {
+        launchValidated(seeded: "stopped", transportShows: "play")   // held session, engine at rest
+        expectPublished("stopped")
+    }
+
     /// Engine playing: every control says so — the same agreement, read the other way. Green before the fix
     /// (identity derivation coincides with truth here); red if a fix keys page state off anything else.
     func testPlayingSessionReadsAsPlayingEverywhere() throws {
-        launch(seeded: "playing")
-
-        XCTAssertTrue(transport.waitForExistence(timeout: 10), "the mini player did not show the seeded session")
-        XCTAssertEqual(transport.label, "pause", "seed validity: the engine did not start playing")
+        launchValidated(seeded: "playing", transportShows: "pause")
 
         XCTAssertTrue(hero.waitForExistence(timeout: 5))
         XCTAssertEqual(hero.label, "pause", "the hero does not show pause while the engine is playing")
+
+        expectPublished("playing")   // and the lock screen agrees
 
         app.swipeUp()
         let rows = seed1Rows()

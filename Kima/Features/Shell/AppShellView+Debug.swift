@@ -35,9 +35,10 @@ extension AppShellView {
             player.currentIndex = 0
         }
         // UI-test hook (DebugPodcastSeed): a seeded podcast page + session, with no server and no audio.
-        // "-kima-fake-podcast paused|playing" starts the engine in that true state with a matching podcast
-        // session, so the transport mirrors can be probed against the page's derived displays (the build-20
-        // bug: hero/rows key on session identity, not engine state). syncHook nils like -kima-fake-queue.
+        // "-kima-fake-podcast paused|playing|waiting|stopped" starts the engine in that true state with a
+        // matching podcast session, so the transport mirrors can be probed against the page's derived
+        // displays (the build-20 bug: hero/rows key on session identity, not engine state) and the lock
+        // screen's published state read back (ticket 03). syncHook nils like -kima-fake-queue.
         if DebugPodcastSeed.isActive,
            let seedData = DebugPodcastSeed.queueJson.data(using: .utf8),
            let seedEpisodes = try? JSONDecoder().decode([Episode].self, from: seedData),
@@ -49,12 +50,21 @@ extension AppShellView {
             player.longFormNowPlayingMeta = LongFormNowPlayingMeta(title: seedCurrent.title,
                                                                    artist: "seed station",
                                                                    coverURL: nil)
-            if DebugPodcastSeed.mode == "playing" {
+            switch DebugPodcastSeed.mode {
+            case "playing":
                 player.engine.isPlaying = true
                 player.engine.status = .playing
-            } else {
+            case "waiting":   // the fetch window: bytes wanted, none out yet (ticket 03's mislabel window)
+                player.engine.wantsPlayback = true
+                player.engine.status = .buffering
+            case "stopped":   // session held, engine resting: ticket 01's silent tail
+                player.engine.status = .idle
+            default:          // "paused"
                 player.engine.status = .paused
             }
+            // Publish like a real transition would — the lock-screen probe (DebugLockScreenProbe)
+            // reads back what the system center actually holds.
+            player.nowPlayingHook?()
         }
         // UI-test hooks: a fake song-path queue, then ask to replace it with a play-similar queue. Agreeing
         // flips the queue to "play similar"; cancelling leaves "song path". Plain: asked over the full

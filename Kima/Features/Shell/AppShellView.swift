@@ -153,6 +153,7 @@ struct AppShellView: View {
             .vibeReplaceDialog(player: player, suppressed: showFullPlayer || env.router.showVibeMap)
             #if DEBUG
             .debugVibeReplaceMarker(player: player, id: "vibe-fake-replace-origin-shell")
+            .debugLockScreenProbe(active: DebugPodcastSeed.isActive)
             .modifier(DebugServerStateRunner(client: env.client))
             .task { await debugLaunchHooks() }
             #endif

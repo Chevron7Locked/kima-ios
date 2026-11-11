@@ -98,7 +98,7 @@ final class NowPlayingController {
                 playbackRate: controller.playbackType.isAudiobook
                     ? Double(controller.audiobookSpeed)
                     : Double(controller.podcastSpeed),
-                isPlaying: controller.isPlaying,
+                displayState: controller.transportDisplayState,
                 isUserAction: isUserAction
             )
             return
@@ -111,8 +111,10 @@ final class NowPlayingController {
             return
         }
 
-        let now        = CACurrentMediaTime()
-        let isPlaying  = controller.isPlaying
+        let now     = CACurrentMediaTime()
+        // The one derived display value (ticket 03, ADR 0001): the published state maps from this,
+        // never a bare is-playing read — during a fetch window it must offer pause, not play.
+        let display   = controller.transportDisplayState
         let currentTime = controller.currentTime
         let duration   = controller.duration
 
@@ -125,14 +127,14 @@ final class NowPlayingController {
         // A non-zero `PlaybackRate` makes the system advance the lock-screen / CarPlay time between pushes, and our
         // 1 Hz re-push then snaps it back (a jumping scrubber while paused; `playbackState = .paused` alone does
         // not freeze it). So zero the rate on pause. `DefaultPlaybackRate` stays 1.0 as the speed button's label.
-        info[MPNowPlayingInfoPropertyPlaybackRate]        = NSNumber(value: isPlaying ? 1.0 : 0.0)
+        info[MPNowPlayingInfoPropertyPlaybackRate]        = NSNumber(value: display == .playing ? 1.0 : 0.0)
         info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = NSNumber(value: 1.0)
 
         // ── Position throttle ─────────────────────────────────────────────────────────
         // Push immediately on user actions or when paused (lock-screen scrubbing must be accurate). During
         // playback throttle to 5 s; the OS advances the display from the last push using the playbackRate.
         let shouldPushPosition = isUserAction
-            || !isPlaying
+            || display != .playing
             || (now - lastPositionPushTime >= 5.0)
 
         if shouldPushPosition {
@@ -160,7 +162,7 @@ final class NowPlayingController {
         }
         let coverChanged = coverId != lastArtworkCoverId
         if coverChanged { currentItemArtwork = nil }   // stale / newly-available cover
-        publish(info, isPlaying: isPlaying)
+        publish(info, displayState: display)
 
         if coverChanged {
             lastArtworkCoverId = coverId
@@ -184,7 +186,7 @@ final class NowPlayingController {
         duration: Double,
         currentTime: Double,
         playbackRate: Double,
-        isPlaying: Bool,
+        displayState: PlaybackController.TransportDisplayState,
         isUserAction: Bool
     ) {
         let now = CACurrentMediaTime()
@@ -197,10 +199,10 @@ final class NowPlayingController {
         // lock-screen scrubber drift forward and snap back on each 1 Hz re-push, so it is zeroed on pause.
         // `DefaultPlaybackRate` always carries the chosen speed; CarPlay's rate button renders it as its label.
         // The pause glyph comes from `playbackState` below.
-        info[MPNowPlayingInfoPropertyPlaybackRate]        = NSNumber(value: isPlaying ? playbackRate : 0.0)
+        info[MPNowPlayingInfoPropertyPlaybackRate]        = NSNumber(value: displayState == .playing ? playbackRate : 0.0)
         info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = NSNumber(value: playbackRate)
 
-        let shouldPushPosition = isUserAction || !isPlaying || (now - lastPositionPushTime >= 5.0)
+        let shouldPushPosition = isUserAction || displayState != .playing || (now - lastPositionPushTime >= 5.0)
         if shouldPushPosition {
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
             lastPositionPushTime = now
@@ -217,13 +219,16 @@ final class NowPlayingController {
             currentItemArtwork = nil
             lastArtworkItemId  = itemId
         }
-        publish(info, isPlaying: isPlaying)
+        publish(info, displayState: displayState)
 
         if itemChanged, let coverURL { fetchArtwork(from: coverURL) }
     }
 
-    /// Hands `info` to the system with the current item's artwork, if it has loaded.
-    private func publish(_ info: [String: Any], isPlaying: Bool) {
+    /// Hands `info` to the system with the current item's artwork, if it has loaded. The published
+    /// playback state maps from the one derived display value (ticket 03, ADR 0001) — the glyph
+    /// vocabulary translation lives here, downstream, so the audible extension never imports
+    /// MediaPlayer and no surface re-derives from engine identity.
+    private func publish(_ info: [String: Any], displayState: PlaybackController.TransportDisplayState) {
         var info = info
         if let image = currentItemArtwork {
             info[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(
@@ -231,7 +236,20 @@ final class NowPlayingController {
             ) { _ in image }
         }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
-        MPNowPlayingInfoCenter.default().playbackState  = isPlaying ? .playing : .paused
+        MPNowPlayingInfoCenter.default().playbackState  = Self.playbackState(for: displayState)
+    }
+
+    /// Lock-screen reading of the derived display state: playing and waiting both show pause (a
+    /// tap stops what you hear, or stops what is coming); retry, blocked and paused show play (a
+    /// tap retries, starts after an ended interruption, or resumes); a resting session says
+    /// stopped. The system offers no retry arrow — play is the honest glyph there, and the tap
+    /// dispatches as retry through `togglePlayPause`'s own precedence.
+    private static func playbackState(for display: PlaybackController.TransportDisplayState) -> MPNowPlayingPlaybackState {
+        switch display {
+        case .playing, .waiting:          return .playing
+        case .retry, .blocked, .paused:   return .paused
+        case .stopped:                    return .stopped
+        }
     }
 
     // MARK: - Artwork download

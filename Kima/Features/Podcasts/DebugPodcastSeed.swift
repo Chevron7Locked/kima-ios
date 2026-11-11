@@ -6,7 +6,7 @@ import Foundation
 /// session (so the transport mirrors read a true engine state). One source for both, like the
 /// placeholder track JSON in `-kima-fake-now-playing`.
 enum DebugPodcastSeed {
-    /// "paused" or "playing" — the engine state the seeded session starts in.
+    /// "paused", "playing", "waiting" or "stopped" — the engine state the seeded session starts in.
     static var mode: String? { DebugDeepLink.launchArgValue("-kima-fake-podcast") }
     static var isActive: Bool { mode != nil }
 

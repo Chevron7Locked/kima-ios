@@ -49,18 +49,12 @@ final class StubURLProtocol: URLProtocol {
     }
 }
 
-/// The test-stub adapter (ticket 08): the same posture as production — trust delegate included,
-/// so suites run the certificate layer they ship behind — with `protocolClasses` answering
-/// instead of the network.
+/// The test-stub adapter (ticket 08): production's posture by construction — one shared
+/// `makeSession` includes the trust delegate — with stub transports answering instead of the
+/// network. It cannot drift from what it claims to mirror; that is the point of two adapters
+/// over duplicated bodies.
 struct StubSessionFactory: SessionFactory {
-    var protocolClasses: [AnyClass] = [StubURLProtocol.self]
-
-    func makeSession(_ needs: SessionNeeds) -> URLSession {
-        let config = URLSessionConfiguration.ephemeral
-        needs.apply(to: config)
-        config.protocolClasses = protocolClasses
-        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
-    }
+    var protocolClasses: [AnyClass]? = [StubURLProtocol.self]
 }
 
 extension KimaAPIClient {

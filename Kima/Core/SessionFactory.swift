@@ -18,20 +18,27 @@ struct SessionNeeds {
 }
 
 /// Hands out every URLSession the app uses — the API client's, the event stream's, the
-/// cover-art loader's — so no consumer mints one itself. The shared posture lives here:
-/// ephemeral configuration (no persistent disk cache, no persistent cookie store, so
-/// authenticated responses never land in `Library/Caches/` readable without the JWT) plus the
-/// certificate trust delegate on every session. Two adapters implement it: production, and a
-/// test stub that keeps the same posture behind a stubbed transport — unit tests run the trust
-/// layer they ship behind.
+/// cover-art loader's — so no consumer mints one itself. The shared posture lives in the one
+/// default implementation of `makeSession`: ephemeral configuration (no persistent disk cache,
+/// no persistent cookie store, so authenticated responses never land in `Library/Caches/`
+/// readable without the JWT) plus the certificate trust delegate on every session. An adapter
+/// expresses only its transport difference, so production and the test stub cannot drift apart —
+/// unit tests run the trust layer they ship behind because there is no other posture to route
+/// around. See GLOSSARY.md "Session factory" for which "session" this is.
 protocol SessionFactory {
-    /// A session with the shared posture plus `needs`' differences.
-    func makeSession(_ needs: SessionNeeds) -> URLSession
+    /// Transport classes answering instead of the network; nil uses the system default set (the
+    /// real network). The only difference an adapter expresses.
+    var protocolClasses: [AnyClass]? { get }
 }
 
 extension SessionFactory {
-    /// The one way to get the shared configuration with nothing per-use added.
-    func makeSession() -> URLSession { makeSession(.init()) }
+    /// The one way to get the shared configuration: posture applied, `needs`' differences on top.
+    func makeSession(_ needs: SessionNeeds = .init()) -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        needs.apply(to: config)
+        if let protocolClasses { config.protocolClasses = protocolClasses }
+        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
+    }
 }
 
 extension SessionFactory where Self == ProductionSessionFactory {
@@ -39,11 +46,7 @@ extension SessionFactory where Self == ProductionSessionFactory {
     static var production: ProductionSessionFactory { ProductionSessionFactory() }
 }
 
-/// The adapter the shipped app runs on.
+/// The adapter the shipped app runs on: real network, shared posture.
 struct ProductionSessionFactory: SessionFactory {
-    func makeSession(_ needs: SessionNeeds) -> URLSession {
-        let config = URLSessionConfiguration.ephemeral
-        needs.apply(to: config)
-        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
-    }
+    var protocolClasses: [AnyClass]? { nil }
 }

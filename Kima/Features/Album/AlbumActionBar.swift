@@ -8,9 +8,6 @@ import SwiftUI
 struct AlbumActionBarView: View {
     let album: Album
     let isOwned: Bool
-    let albumIsAudible: Bool
-    /// This album holds the current session — dispatch only (pause/resume vs start over).
-    let albumOwnsSession: Bool
     let vm: AlbumDetailViewModel
     /// Opens the metadata editor; nil hides "edit details" (albums not in the library).
     var onEdit: (() -> Void)? = nil
@@ -23,6 +20,12 @@ struct AlbumActionBarView: View {
     private var hasMissingTracks: Bool {
         !(album.missingTracks ?? []).isEmpty
     }
+
+    /// The album's own track ids — the page's membership rule, handed to the controller to ask with.
+    private var albumTrackIds: Set<String> { Set((album.tracks ?? []).map(\.id)) }
+
+    /// True when this album's sound plays (ADR 0001 display).
+    private var albumIsAudible: Bool { player.isAudible(trackIds: albumTrackIds) }
 
     var body: some View {
         content
@@ -59,14 +62,10 @@ struct AlbumActionBarView: View {
     // Play shows Pause when THIS album's sound plays. The view's one amber control: a flat disc.
     private var playPauseButton: some View {
         KimaHeroPlayButton(isPlaying: albumIsAudible) {
-            // The glyph keys on audible; the tap dispatches on session ownership (ADR 0001):
-            // pause/resume while this album holds the player, start over only when it doesn't.
-            if albumOwnsSession {
-                player.togglePlayPause()
-            } else {
-                let tracks = album.tracksInOrder
-                if !tracks.isEmpty { player.play(tracks: tracks, startAt: 0, shuffle: false) }
-            }
+            // The glyph keys on audible; the tap hands the membership rule and the tracks to the
+            // controller's one dispatch (ADR 0001): pause/resume while this album holds the
+            // player, start fresh only when it doesn't.
+            player.handleHeroTap(trackIds: albumTrackIds, tracks: album.tracksInOrder, shuffle: false)
         }
     }
 

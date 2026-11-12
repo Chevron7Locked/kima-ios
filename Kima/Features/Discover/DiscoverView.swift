@@ -256,22 +256,12 @@ struct DiscoverView: View {
         player.isAudible(trackIds: playlistTrackIds)
     }
 
-    /// Whether this playlist holds the current session — dispatch only (resume vs start over).
-    private var playlistOwnsSession: Bool {
-        player.ownsSession(forTrackIds: playlistTrackIds)
-    }
-
+    /// The hero tap hands the membership rule and the whole crate to the controller's one
+    /// dispatch (ADR 0001): resume/pause while this playlist holds the player, start fresh only
+    /// when another session or none does.
     private func handlePlayToggle() {
-        if playlistOwnsSession {
-            player.togglePlayPause()
-        } else {
-            handlePlayPlaylist()
-        }
-    }
-
-    private func handlePlayPlaylist() {
         guard let p = vm.playlist, !p.tracks.isEmpty else { return }
-        player.play(tracks: makeTracks(from: p.tracks), startAt: 0)
+        player.handleHeroTap(trackIds: playlistTrackIds, tracks: makeTracks(from: p.tracks))
     }
 
     /// Plays the crate starting at `id`'s real position in the playlist's original track

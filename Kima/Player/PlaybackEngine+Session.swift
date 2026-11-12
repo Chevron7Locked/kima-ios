@@ -59,6 +59,26 @@ extension PlaybackEngine {
         }
     }
 
+    #if DEBUG
+    /// Test-isolation seam (ticket 06 addendum): retire the observers that face the host — the
+    /// interruption and route-change tokens and the time-control KVO — so a test driving audio
+    /// in the shared simulator host can't have the engine's mirrors moved under its assertions.
+    /// `PlaybackController.silent()` in the test support calls this; host-audio quiet is the
+    /// default for audio-driving tests from here on.
+    func detachHostObservers() {
+        if let token = interruptionToken {
+            NotificationCenter.default.removeObserver(token)
+            interruptionToken = nil
+        }
+        if let token = routeChangeToken {
+            NotificationCenter.default.removeObserver(token)
+            routeChangeToken = nil
+        }
+        timeControlObservation?.invalidate()
+        timeControlObservation = nil
+    }
+    #endif
+
     /// Handle `AVAudioSession.interruptionNotification`.
     private func handleInterruption(notification: Notification) {
         guard

@@ -56,9 +56,10 @@ struct AudiobookActionBar: View {
 
     private var playButton: some View {
         Button {
-            if isThisBookLoaded {
-                if isThisBookAudible { env.player.pause() } else { env.player.resume() }
-            } else {
+            // The tap hands the book question and its play action to the controller's one
+            // dispatch (ADR 0001): resume/pause while this book holds the player, start from
+            // its saved place only when it doesn't.
+            env.player.handleHeroTap(bookId: book.id) {
                 Task { await env.player.playAudiobook(book, client: env.client) }
             }
         } label: {

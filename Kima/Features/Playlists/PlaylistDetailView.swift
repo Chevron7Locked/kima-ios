@@ -150,14 +150,14 @@ struct PlaylistDetailView: View {
         let items = playlist.items ?? []
         return HStack(spacing: KimaSpacing.md) {
             // Play / Pause — like every other hero: the glyph keys on audible (ADR 0001), the tap
-            // dispatches on session ownership — pause/resume while this playlist holds the player,
-            // start over only when another session or none does.
+            // hands the membership rule and the tracks to the controller's one dispatch —
+            // pause/resume while this playlist holds the player, start fresh only when another
+            // session or none does.
             if !items.isEmpty {
                 let tracks = vm.tracks(from: items)
                 let trackIds = Set(tracks.map(\.id))
                 KimaHeroPlayButton(isPlaying: player.isAudible(trackIds: trackIds), label: "play all") {
-                    if player.ownsSession(forTrackIds: trackIds) { player.togglePlayPause() }
-                    else { player.play(tracks: tracks, startAt: 0) }
+                    player.handleHeroTap(trackIds: trackIds, tracks: tracks)
                 }
                 .accessibilityIdentifier("playlist-play-all")   // leaf button — UITest: play-all → artist hydration
             }

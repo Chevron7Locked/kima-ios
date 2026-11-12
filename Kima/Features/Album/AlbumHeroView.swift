@@ -29,15 +29,6 @@ struct AlbumHeroView: View {
     /// The album's own cover if it has one, else the library's.
     static func coverId(for album: Album) -> String? { album.userCoverUrl ?? album.coverArt ?? album.coverUrl }
 
-    /// The album's track ids — the page's membership rule, handed to the controller to ask with.
-    private var albumTrackIds: Set<String> { Set((album.tracks ?? []).map(\.id)) }
-
-    /// True when this album's sound plays (ADR 0001 display).
-    private var albumIsAudible: Bool { player.isAudible(trackIds: albumTrackIds) }
-
-    /// True when this album holds the current session — dispatch only (resume vs start over).
-    private var albumOwnsSession: Bool { player.ownsSession(forTrackIds: albumTrackIds) }
-
     var body: some View {
         // The page draws the cover-colour backdrop (AlbumHeroBackdrop) behind the hero at its height.
         VStack(alignment: .leading, spacing: 0) {
@@ -46,8 +37,6 @@ struct AlbumHeroView: View {
             AlbumActionBarView(
                 album: album,
                 isOwned: isOwned,
-                albumIsAudible: albumIsAudible,
-                albumOwnsSession: albumOwnsSession,
                 vm: vm,
                 onEdit: onEdit
             )

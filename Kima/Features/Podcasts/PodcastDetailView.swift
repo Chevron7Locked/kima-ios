@@ -174,14 +174,15 @@ struct PodcastDetailView: View {
     @ViewBuilder
     private func subscribedActionBar(_ podcast: Podcast, ownsSession: Bool, audible: Bool, episodes: [Episode]) -> some View {
         HStack(spacing: KimaSpacing.md) {
-            // Play Latest / Pause / Resume: pause shows only while this show's session actually runs. A tap on
-            // the current session toggles it — resuming picks up where it stopped, never starts over from zero.
-            let isPlaying = ownsSession && audible
-            KimaHeroPlayButton(isPlaying: isPlaying, label: isPlaying ? "pause" : (ownsSession ? "resume" : "play latest episode")) {
-                if ownsSession {
-                    player.togglePlayPause()
-                } else if let ep = vm.playLatestEpisode() {
-                    player.playPodcastEpisode(ep, podcast: podcast, queue: episodes, client: env.client)
+            // Play Latest / Pause / Resume: pause shows only while this show's session actually runs.
+            // The tap hands the show question and the play-latest action to the controller's one
+            // dispatch (ADR 0001) — resuming picks up where it stopped, never starts over from zero.
+            let showIsAudible = ownsSession && audible
+            KimaHeroPlayButton(isPlaying: showIsAudible, label: showIsAudible ? "pause" : (ownsSession ? "resume" : "play latest episode")) {
+                player.handleHeroTap(podcastId: podcast.id) {
+                    if let ep = vm.playLatestEpisode() {
+                        player.playPodcastEpisode(ep, podcast: podcast, queue: episodes, client: env.client)
+                    }
                 }
             }
             Spacer(minLength: 0)

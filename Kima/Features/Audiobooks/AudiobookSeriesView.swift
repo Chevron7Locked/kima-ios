@@ -143,13 +143,10 @@ struct AudiobookSeriesView: View {
         }
     }
 
-    /// Plays `book` from its saved place, or pauses / resumes it when it is already loaded.
+    /// Plays `book` from its saved place, or pauses / resumes it when it is already loaded —
+    /// the controller's one dispatch decides which (ADR 0001).
     private func playOrToggle(_ book: Audiobook) {
-        if env.player.isAudiobookLoaded(book.id) {
-            // Keyed on audible to match the row's light: while its sound is being fetched the
-            // badge shows pause, so the tap must pause (ADR 0001).
-            env.player.isAudible(bookId: book.id) ? env.player.pause() : env.player.resume()
-        } else {
+        env.player.handleHeroTap(bookId: book.id) {
             Task { await env.player.playAudiobook(book, client: env.client) }
         }
     }

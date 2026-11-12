@@ -8,25 +8,30 @@ import Foundation
 @MainActor
 enum CarPlayPlayback {
 
-    /// Audiobooks and Continue both route through this. Re-fetches full detail first so `Audiobook.progress` is
-    /// populated: list responses don't reliably carry it, and `playAudiobook` needs it to resume at the saved position
-    /// (`makeBookSession` fetches tracks but not progress). False when the book couldn't be fetched (the caller says so).
+    /// Audiobooks and Continue both route through this. The already-loaded guard is the shared
+    /// dispatch's decision, not CarPlay's (ticket 06's entry point, awaited form): while this
+    /// book holds the session the tap resumes-or-pauses through the transport's precedence and
+    /// nothing is fetched — a reload re-seeks and, if the fetched detail's `progress` comes back
+    /// nil, would restart the book at 0 over your real place (the double-tap bug). Not owned →
+    /// re-fetches full detail first so `Audiobook.progress` is populated: list responses don't
+    /// reliably carry it, and `playAudiobook` needs it to resume at the saved position
+    /// (`makeBookSession` fetches tracks but not progress). False when the book couldn't be
+    /// fetched (the caller says so).
     @discardableResult
     static func playAudiobook(id: String, resumeAt: Double? = nil, env: AppEnvironment) async -> Bool {
-        // Idempotent: if this book is ALREADY the current long-form item, do NOT reload it — a
-        // reload re-seeks and, if the fetched detail's `progress` comes back nil, would restart the
-        // book at 0 and let the sync save 0 over your real place. A repeat tap just keeps it
-        // playing (resuming if it was paused). This is what made a double-tap wipe the position.
-        if env.player.isAudiobookLoaded(id) {
-            if !env.player.isPlaying { env.player.togglePlayPause() }
-            return true
+        var loadFailed = false
+        await env.player.handleHeroTap(bookId: id) {
+            guard let book = try? await env.client.getAudiobook(id: id) else {
+                loadFailed = true
+                return
+            }
+            await env.player.playAudiobook(book, client: env.client, resumeAt: resumeAt)
         }
-        guard let book = try? await env.client.getAudiobook(id: id) else { return false }
-        await env.player.playAudiobook(book, client: env.client, resumeAt: resumeAt)
-        return true
+        return !loadFailed
     }
 
-    /// Force-reload `id` at `resumeAt`, bypassing the same-book guard in `playAudiobook(id:resumeAt:env:)`. Used by "Start
+    /// Force-reload `id` at `resumeAt`, bypassing the shared dispatch's same-book guard that
+    /// `playAudiobook(id:resumeAt:env:)` routes through. Used by "Start
     /// Over" (`resumeAt: 0`) and chapter rows (the chapter's book-absolute start), where the book may already be current
     /// but the user wants a re-seek, not a no-op. False when the book couldn't be fetched (the caller says so).
     @discardableResult

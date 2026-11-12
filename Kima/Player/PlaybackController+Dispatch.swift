@@ -6,6 +6,10 @@ import Foundation
 // tracks are its own) and the tap; whether that means resume, pause or start fresh is decided
 // here — identity dispatches, never appearance (ADR 0001). Pages keep no branch of their own:
 // a future change to this rule lands in this file.
+//
+// The membership questions dispatch consumes — one per kind: `ownsSession(forTrackIds:)`,
+// `ownsSession(where:)`, `ownsPodcastSession(_:)`, `isAudiobookLoaded(_:)`. A new membership
+// question greps this list first and joins it, so the family keeps one version of each.
 
 extension PlaybackController {
 
@@ -37,6 +41,17 @@ extension PlaybackController {
     /// keeps its play-book action, never the decision.
     func handleHeroTap(bookId: String, start: () -> Void) {
         dispatchHeroTap(owned: isAudiobookLoaded(bookId), start: start)
+    }
+
+    /// The awaited form of the book question, for pages whose start action must fetch before it
+    /// can play (CarPlay's book rows re-fetch detail so `progress` is populated): the same one
+    /// decision through the same core. When the controller chooses start, the awaited action
+    /// runs after dispatch returns; an owned tap never reaches it — a surface that cannot wipe
+    /// your position by re-fetching what it already holds (ticket 07's double-tap guard).
+    func handleHeroTap(bookId: String, start: () async -> Void) async {
+        var startsFresh = false
+        dispatchHeroTap(owned: isAudiobookLoaded(bookId)) { startsFresh = true }
+        if startsFresh { await start() }
     }
 
     /// The one decision every hero form funnels through: holding the session → the transport's

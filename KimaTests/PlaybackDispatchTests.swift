@@ -216,4 +216,62 @@ final class PlaybackDispatchTests: XCTestCase {
         XCTAssertTrue(started, "a not-owned tap must run the page's play-book action")
         XCTAssertFalse(c.engine.wantsPlayback, "starting is the page's job; dispatch must not also toggle")
     }
+
+    // MARK: - Awaited book hero (CarPlay rows fetch detail before they can start)
+
+    /// The awaited form of the book question, for pages whose start action must fetch first.
+    /// Paused and owned: the tap resumes in place and the awaited start — the re-fetch that
+    /// could restart the book at 0 over the listener's real place — is never reached. That is
+    /// CarPlay's double-tap guard (ticket 07) living in the dispatch, not on the surface.
+    func testAwaitedBookHeroTapResumesPausedOwnedBook() async throws {
+        let c = PlaybackController.stubbed()
+        c.playbackType = .audiobook(BookSession(bookId: "bk1", totalDuration: 100,
+            files: [AudiobookTrack(index: 1, startOffset: 0, duration: 100)]))
+        c.engine.status = .paused
+
+        var started = false
+        let start: () async -> Void = { started = true }
+        await c.handleHeroTap(bookId: "bk1", start: start)
+
+        XCTAssertTrue(c.engine.wantsPlayback, "a paused session of this book must resume")
+        XCTAssertFalse(started, "owning the session means never re-fetching the book")
+    }
+
+    /// The same awaited hero while its sound plays: the opposite decision on the same
+    /// ownership — pause what you hear, and still no fetch. CarPlay's row kept asking this
+    /// of raw engine state (`!isPlaying`) instead of asking the dispatch.
+    func testAwaitedBookHeroTapPausesWhileAudible() async throws {
+        let c = PlaybackController.stubbed()
+        c.playbackType = .audiobook(BookSession(bookId: "bk1", totalDuration: 100,
+            files: [AudiobookTrack(index: 1, startOffset: 0, duration: 100)]))
+        c.engine.wantsPlayback = true
+        c.engine.applyTimeControlStatus(.playing)
+
+        var started = false
+        let start: () async -> Void = { started = true }
+        await c.handleHeroTap(bookId: "bk1", start: start)
+
+        XCTAssertFalse(c.engine.wantsPlayback, "an audible owned book must pause")
+        XCTAssertFalse(started, "pausing is not re-fetching the book")
+    }
+
+    /// Another session holds playback: the awaited start — fetch detail, then play — runs and
+    /// has *finished* by the time dispatch returns (the caller's fetch-failure feedback waits
+    /// on that), while dispatch itself toggles nothing.
+    func testAwaitedBookHeroTapRunsAwaitedStartWhenNotOwned() async throws {
+        let c = PlaybackController.stubbed()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+        c.engine.status = .paused
+
+        var started = false
+        let start: () async -> Void = {
+            try? await Task.sleep(nanoseconds: 10_000_000)   // a fetch-shaped pause
+            started = true
+        }
+        await c.handleHeroTap(bookId: "bk1", start: start)
+
+        XCTAssertTrue(started, "a not-owned tap must finish the page's fetch-and-play action")
+        XCTAssertFalse(c.engine.wantsPlayback, "starting is the page's job; dispatch must not also toggle")
+    }
 }

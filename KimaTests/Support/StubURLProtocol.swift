@@ -57,6 +57,15 @@ struct StubSessionFactory: SessionFactory {
     var protocolClasses: [AnyClass]? = [StubURLProtocol.self]
 }
 
+/// A transport that never answers: every request fails at the connection level, no HTTP status,
+/// for the branches that must tell *server unreachable* from any HTTP reply (`APIError.network`).
+final class FailingURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
+    override func stopLoading() {}
+}
+
 extension KimaAPIClient {
     static func stubbed(credential: KimaCredential = .jwt("test")) -> KimaAPIClient {
         KimaAPIClient(server: KimaServer(baseURL: URL(string: "https://stub.test")!),

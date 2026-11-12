@@ -6,14 +6,6 @@ final class StreamTicketTests: XCTestCase {
     override func setUp() { StubURLProtocol.reset() }
     override func tearDown() { StubURLProtocol.reset() }
 
-    /// A session whose every request fails at the transport level (no HTTP response at all).
-    private final class FailingProtocol: URLProtocol {
-        override class func canInit(with request: URLRequest) -> Bool { true }
-        override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-        override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
-        override func stopLoading() {}
-    }
-
     private let jwt = "SECRET.LOGIN.JWT"
 
     /// Runs `body` with the Keychain access token set to a known value, saved for `server` (the
@@ -88,7 +80,7 @@ final class StreamTicketTests: XCTestCase {
         await withKnownLoginToken {
             let client = KimaAPIClient(server: KimaServer(baseURL: URL(string: "https://stub.test")!),
                                        credential: .jwt(jwt),
-                                       sessions: StubSessionFactory(protocolClasses: [FailingProtocol.self]))
+                                       sessions: StubSessionFactory(protocolClasses: [FailingURLProtocol.self]))
             let token = await client.streamTicket()
             XCTAssertNil(token)
             XCTAssertTrue(streamURLs(from: token).isEmpty)

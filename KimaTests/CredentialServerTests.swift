@@ -9,11 +9,10 @@ final class CredentialServerTests: XCTestCase {
     private let old = KimaServer(baseURL: URL(string: "https://kima-old.invalid")!)
     private let new = KimaServer(baseURL: URL(string: "https://kima-new.invalid:3443")!)
     private var savedLogin = KeychainLoginSnapshot()
-    private var savedAddress: String?
 
     override func setUpWithError() throws {
+        StubURLProtocol.reset()
         savedLogin = KeychainLoginSnapshot()
-        savedAddress = UserDefaults.standard.string(forKey: "kima.serverURL")
         guard KeychainStore.setCredential("probe", for: KeychainStore.accessToken, server: old) else {
             throw XCTSkip("Keychain writes are unavailable in this test host")
         }
@@ -21,8 +20,8 @@ final class CredentialServerTests: XCTestCase {
     }
 
     override func tearDown() {
-        savedLogin.restore()
-        UserDefaults.standard.set(savedAddress, forKey: "kima.serverURL")
+        StubURLProtocol.reset()
+        savedLogin.restore()   // takes the stored server address back with it
     }
 
     func testCredentialIsReadOnlyForTheServerItWasSavedFor() {
@@ -36,15 +35,17 @@ final class CredentialServerTests: XCTestCase {
     func testResumeRefusesTheNewServersTokenAtTheOldAddress() async {
         // Signed in to the old server, then a sign-in to the new one saved its token and the app
         // died before saving the new address.
-        UserDefaults.standard.set(KeychainStore.serverID(old), forKey: "kima.serverURL")
+        UserDefaults.standard.set(KeychainStore.serverID(old), forKey: ServerURLStore.key)
         XCTAssertTrue(KeychainStore.setCredential("new-token", for: KeychainStore.accessToken, server: new))
         XCTAssertTrue(KeychainStore.setCredential("new-refresh", for: KeychainStore.refreshToken, server: new))
 
-        let session = SessionStore()
+        // The stub adapter answers every URL, so anything resume did send would be recorded —
+        // the refusal is proven structurally, not by an unresolvable hostname swallowing a mistake.
+        let session = SessionStore(sessions: StubSessionFactory())
         await session.resume()
 
-        // Refused before any request: a request to the (unresolvable) old address would end unreachable.
         XCTAssertEqual(session.phase, .unauthenticated)
+        XCTAssertTrue(StubURLProtocol.requests.isEmpty, "refused before any request")
         XCTAssertEqual(KeychainStore.credential(KeychainStore.accessToken, for: new), "new-token",
                        "still bound to the new server, never rebound to the old address")
     }

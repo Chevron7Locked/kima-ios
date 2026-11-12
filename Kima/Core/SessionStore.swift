@@ -18,6 +18,17 @@ final class SessionStore {
 
     private(set) var phase: Phase = .launching
     private var isSigningOut = false
+    /// The factory every client this class builds gets its sessions from, so the launch resume
+    /// classification (authenticated / needs sign-in / unreachable) is testable through that seam.
+    private let sessions: any SessionFactory
+
+    init(sessions: any SessionFactory = .production) { self.sessions = sessions }
+
+    /// The only client this class builds, and the only way: every request it makes rides the
+    /// injected factory, so no construction site can silently fall back to `.production`.
+    private func makeClient(for server: KimaServer, credential: KimaCredential) -> KimaAPIClient {
+        KimaAPIClient(server: server, credential: credential, sessions: sessions)
+    }
 
     /// Display host that preserves a non-default port (self-hosted Kima often runs on one).
     nonisolated static func displayHost(for url: URL, fallback: String) -> String {
@@ -71,7 +82,7 @@ final class SessionStore {
             return
         }
         let host = Self.displayHost(for: url, fallback: urlString)
-        let client = KimaAPIClient(server: server, credential: credential)
+        let client = makeClient(for: server, credential: credential)
         do {
             _ = try await client.me()
             phase = .authenticated(host: host)
@@ -124,7 +135,7 @@ final class SessionStore {
         if let urlString = ServerURLStore.stored,
            let url = URL(string: urlString),
            let credential = KimaCredential.fromKeychain(for: KimaServer(baseURL: url)) {
-            let client = KimaAPIClient(server: KimaServer(baseURL: url), credential: credential)
+            let client = makeClient(for: KimaServer(baseURL: url), credential: credential)
             Task { await client.logout() }   // best-effort; do not await a possibly-dead server
         }
         KeychainStore.clearCredentials()   // keeps the trusted certificate

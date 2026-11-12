@@ -86,10 +86,9 @@ final class StreamTicketTests: XCTestCase {
 
     func testNetworkErrorProducesNoToken() async {
         await withKnownLoginToken {
-            let config = URLSessionConfiguration.ephemeral
-            config.protocolClasses = [FailingProtocol.self]
             let client = KimaAPIClient(server: KimaServer(baseURL: URL(string: "https://stub.test")!),
-                                       credential: .jwt(jwt), session: URLSession(configuration: config))
+                                       credential: .jwt(jwt),
+                                       sessions: StubSessionFactory(protocolClasses: [FailingProtocol.self]))
             let token = await client.streamTicket()
             XCTAssertNil(token)
             XCTAssertTrue(streamURLs(from: token).isEmpty)

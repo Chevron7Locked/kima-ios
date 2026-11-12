@@ -20,13 +20,11 @@ actor ImageCache {
     /// a single Task and receive the same result — one network request per image at a time.
     private var inFlight: [String: Task<UIImage, Error>] = [:]
 
-    init() {
+    init(sessions: any SessionFactory = .production) {
         cache.countLimit = 200; cache.totalCostLimit = 50 * 1024 * 1024
         cache.delegate = bytes
-        // Dedicated ephemeral session: no persistent disk cache, routes through
-        // ServerTrustCoordinator for TOFU validation on self-signed server certs.
-        let config = URLSessionConfiguration.ephemeral
-        session = URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
+        // Ephemeral posture + TOFU trust delegate, like every other session in the app.
+        session = sessions.makeSession()
     }
 
     /// Wires auth for cover-art requests. Only URLs whose host exactly matches `serverHost` (case-insensitive) get

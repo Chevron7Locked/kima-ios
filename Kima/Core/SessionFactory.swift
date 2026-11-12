@@ -1,0 +1,49 @@
+import Foundation
+
+/// How one consumer's session differs from the shared posture — today only timeouts: the API
+/// client's long-timeout twin and the event stream's finite pair.
+/// Cache posture is deliberately NOT per-use: every consumer shares the ephemeral no-disk-cache
+/// rule because authenticated bytes must never persist unencrypted. If a consumer ever genuinely
+/// needs to differ, that need gets a field here, not a hand-minted session.
+struct SessionNeeds {
+    /// Max gap between bytes before the request fails; nil keeps Foundation's 60s default.
+    var requestTimeout: TimeInterval?
+    /// Hard cap on one task's total lifetime; nil keeps Foundation's 7-day default.
+    var resourceTimeout: TimeInterval?
+
+    func apply(to config: URLSessionConfiguration) {
+        if let requestTimeout { config.timeoutIntervalForRequest = requestTimeout }
+        if let resourceTimeout { config.timeoutIntervalForResource = resourceTimeout }
+    }
+}
+
+/// Hands out every URLSession the app uses — the API client's, the event stream's, the
+/// cover-art loader's — so no consumer mints one itself. The shared posture lives here:
+/// ephemeral configuration (no persistent disk cache, no persistent cookie store, so
+/// authenticated responses never land in `Library/Caches/` readable without the JWT) plus the
+/// certificate trust delegate on every session. Two adapters implement it: production, and a
+/// test stub that keeps the same posture behind a stubbed transport — unit tests run the trust
+/// layer they ship behind.
+protocol SessionFactory {
+    /// A session with the shared posture plus `needs`' differences.
+    func makeSession(_ needs: SessionNeeds) -> URLSession
+}
+
+extension SessionFactory {
+    /// The one way to get the shared configuration with nothing per-use added.
+    func makeSession() -> URLSession { makeSession(.init()) }
+}
+
+extension SessionFactory where Self == ProductionSessionFactory {
+    /// The default every consumer starts from: the adapter the shipped app runs on.
+    static var production: ProductionSessionFactory { ProductionSessionFactory() }
+}
+
+/// The adapter the shipped app runs on.
+struct ProductionSessionFactory: SessionFactory {
+    func makeSession(_ needs: SessionNeeds) -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        needs.apply(to: config)
+        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
+    }
+}

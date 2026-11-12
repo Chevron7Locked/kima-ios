@@ -1,18 +1,13 @@
 import Foundation
 @testable import Kima
 
-/// Canned HTTP responses for unit tests. Build a client with `StubURLProtocol.session()`;
-/// set `handler` per test; every request (and its body) is recorded before the handler runs.
+/// Canned HTTP responses for unit tests, installed by `StubSessionFactory`. Set `handler` per
+/// test; every request (and its body) is recorded before the handler runs.
 final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var handler: ((URLRequest) -> (status: Int, body: Data))?
     nonisolated(unsafe) static var requests: [URLRequest] = []
     nonisolated(unsafe) static var bodies: [Data] = []
 
-    static func session() -> URLSession {
-        let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [StubURLProtocol.self]
-        return URLSession(configuration: config)
-    }
     static func reset() { handler = nil; requests = []; bodies = [] }
 
     /// Requests whose path ends with `suffix`, with their bodies decoded as JSON objects.
@@ -54,10 +49,24 @@ final class StubURLProtocol: URLProtocol {
     }
 }
 
+/// The test-stub adapter (ticket 08): the same posture as production — trust delegate included,
+/// so suites run the certificate layer they ship behind — with `protocolClasses` answering
+/// instead of the network.
+struct StubSessionFactory: SessionFactory {
+    var protocolClasses: [AnyClass] = [StubURLProtocol.self]
+
+    func makeSession(_ needs: SessionNeeds) -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        needs.apply(to: config)
+        config.protocolClasses = protocolClasses
+        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
+    }
+}
+
 extension KimaAPIClient {
     static func stubbed(credential: KimaCredential = .jwt("test")) -> KimaAPIClient {
         KimaAPIClient(server: KimaServer(baseURL: URL(string: "https://stub.test")!),
-                      credential: credential, session: StubURLProtocol.session())
+                      credential: credential, sessions: StubSessionFactory())
     }
 }
 

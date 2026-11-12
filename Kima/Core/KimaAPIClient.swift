@@ -18,11 +18,10 @@ actor KimaAPIClient {
     let server: KimaServer
     private var credential: KimaCredential?
     private let session: URLSession
-    /// Dedicated long-timeout session for calls whose server-side work can exceed the default
+    /// Long-timeout twin of `session` for calls whose server-side work can exceed the default
     /// request timeout (e.g. Soulseek P2P downloads, which block up to ~120s server-side while
-    /// the transfer completes). Mirrors `makeDefaultSession()` — ephemeral, no disk cache — but
-    /// with a longer `timeoutIntervalForRequest`. Same lifetime as `session`; built once per client.
-    private let longSession: URLSession = KimaAPIClient.makeLongTimeoutSession()
+    /// the transfer completes). Same factory as `session`; built once per client.
+    private let longSession: URLSession
     private let decoder = JSONDecoder()
 
     /// In-flight token refresh. Nil when no refresh is running. Concurrent 401 callers await
@@ -39,29 +38,15 @@ actor KimaAPIClient {
     /// internal (not private): shared with the +LongForm extension file.
     var ticketTask: Task<String?, Never>?
 
-    /// Builds a dedicated ephemeral URLSession: no persistent disk cache, no persistent cookie
-    /// store. Prevents authenticated API responses (user profile, library contents, play history)
-    /// from being written to `Library/Caches/` where they are readable without the JWT.
-    ///
-    private static func makeDefaultSession() -> URLSession {
-        let config = URLSessionConfiguration.ephemeral  // no disk cache; no persistent cookies
-        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
-    }
-
-    /// Same ephemeral posture as `makeDefaultSession()`, but with a 180s request timeout —
-    /// covers the Soulseek download endpoint's ~120s server-side P2P transfer budget, which
-    /// exceeds the default session's 60s timeout. Mirrors the dedicated long-lived session
-    /// `SSEManager` builds for its own long-running connection.
-    private static func makeLongTimeoutSession() -> URLSession {
-        let config = URLSessionConfiguration.ephemeral  // no disk cache; no persistent cookies
-        config.timeoutIntervalForRequest = 180
-        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
-    }
-
-    init(server: KimaServer, credential: KimaCredential? = nil, session: URLSession = KimaAPIClient.makeDefaultSession()) {
+    /// Both sessions come from `sessions` — the stub adapter in tests reaches every call,
+    /// including the long-timeout ones. The ephemeral + trust posture is the factory's to own.
+    init(server: KimaServer, credential: KimaCredential? = nil, sessions: any SessionFactory = .production) {
         self.server = server
         self.credential = credential
-        self.session = session
+        self.session = sessions.makeSession()
+        // 180s covers the Soulseek download endpoint's ~120s server-side P2P transfer budget,
+        // which exceeds the default session's 60s request timeout.
+        self.longSession = sessions.makeSession(SessionNeeds(requestTimeout: 180))
     }
 
     /// Update the credential after login / pairing.

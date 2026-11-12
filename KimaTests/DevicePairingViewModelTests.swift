@@ -29,7 +29,7 @@ final class DevicePairingViewModelTests: XCTestCase {
     private func makeVM(_ request: DevicePairingRequest? = nil,
                         phase: SessionStore.Phase = .unauthenticated) -> DevicePairingViewModel {
         var linker = DeviceLinker()
-        linker.makeClient = { KimaAPIClient(server: $0, session: StubURLProtocol.session()) }
+        linker.makeClient = { KimaAPIClient(server: $0, sessions: StubSessionFactory()) }
         linker.persistServer = { [unowned self] in persisted.append($0) }
         linker.deviceName = { "test phone" }
         return DevicePairingViewModel(request: request ?? .link(link), linker: linker,

@@ -67,15 +67,13 @@ final class SSEManager {
 
     // MARK: - Init
 
-    init() {
-        let cfg = URLSessionConfiguration.ephemeral
+    init(sessions: any SessionFactory = .production) {
         // Finite (not Int.max): a silently-dead connection (server gone, no FIN) must eventually
         // time out so the reconnect loop fires instead of hanging forever. Request timeout is the
         // max gap between bytes — longer than the server's SSE keepalive; resource forces a daily
         // reconnect. Both let the OS reclaim hung sockets.
-        cfg.timeoutIntervalForRequest = 600        // 10 min inactivity → error → reconnect
-        cfg.timeoutIntervalForResource = 86_400    // 1 day max stream lifetime → clean reconnect
-        sseSession = URLSession(configuration: cfg, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
+        sseSession = sessions.makeSession(SessionNeeds(requestTimeout: 600,       // 10 min inactivity → error → reconnect
+                                                       resourceTimeout: 86_400)) // 1 day max stream lifetime → clean reconnect
     }
 
     // No deinit cleanup on purpose: in Swift 6 deinit is non-isolated, so touching the @MainActor `streamTask`

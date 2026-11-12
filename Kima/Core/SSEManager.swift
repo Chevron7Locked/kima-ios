@@ -32,6 +32,13 @@ final class SSEManager {
     /// once per `libraryRefreshSpacing`, so a long run of events can't set off a reload storm.
     var libraryTick = 0
     @ObservationIgnored var libraryRefreshSpacing: Duration = .seconds(10)
+
+    /// The reconnect loop's pause before the next attempt. Injectable so tests can watch the
+    /// backoff schedule without waiting out wall-clock seconds (ticket 09); the default is the
+    /// real cancellable sleep — a cancelled stream wakes here and the loop's checks end it.
+    @ObservationIgnored var backoffDelay: @Sendable (Duration) async -> Void = {
+        try? await Task.sleep(for: $0)
+    }
     @ObservationIgnored private var libraryTickPending = false
 
     /// The latest library scan event, for the More menu's sync row.
@@ -47,9 +54,10 @@ final class SSEManager {
 
     @ObservationIgnored private var streamTask: Task<Void, Never>?
 
-    /// Dedicated URLSession for the SSE connection. Ephemeral (no disk cache) with
-    /// unlimited timeouts; the OS must not tear down the persistent long-lived connection.
-    @ObservationIgnored private let sseSession: URLSession
+    /// Dedicated URLSession for the SSE connection, from the session factory: ephemeral (no disk
+    /// cache) with finite timeouts that reclaim a silently-dead connection and cap one stream's
+    /// lifetime. Internal so the reconnect suite can pin those values where they are documented.
+    @ObservationIgnored let sseSession: URLSession
 
     /// Retained for foreground-resume restart and notification-action methods.
     @ObservationIgnored var storedClient: KimaAPIClient?
@@ -190,7 +198,7 @@ final class SSEManager {
             guard !Task.isCancelled else { break }
             isConnected = false
 
-            try? await Task.sleep(nanoseconds: backoff)
+            await backoffDelay(.nanoseconds(backoff))
             backoff = min(backoff * 2, maxBackoff)
         }
 

@@ -83,16 +83,15 @@ struct RootView: View {
                 guard appEnv == nil else { return }
                 // A second iPad window joins the live session instead of starting a second player.
                 appEnv = CarPlayLink.shared.environment ?? makeAppEnvironment()
+                // Building the bag is inert (ticket 12); this one call opens the session's network
+                // lifecycle — stream, ticket keeper, sync poll, art auth, rotation observer.
+                appEnv?.bootstrap.start()
                 // Share the SAME env (one PlaybackController) with the CarPlay scene, if any.
                 CarPlayLink.shared.publish(appEnv)
             case .unauthenticated:
-                // Stop the SSE stream and the playback-state poll before releasing the env
-                // (Swift-6 @MainActor deinit can't).
-                appEnv?.events.teardown()
-                appEnv?.sync.stop()
-                // Stop minting stream tickets ahead of taps: the env is about to be released and
-                // the app is signed out, so there is no session left to warm.
-                appEnv?.player.stopKeepingStreamTicketWarm()
+                // Stop-and-release: bootstrap.stop() guarantees its own ordering on the main actor
+                // before the env goes away (Swift-6 @MainActor deinit can't).
+                appEnv?.bootstrap.stop()
                 // Clear so the next login gets a fresh client with the (possibly new) credential.
                 appEnv = nil
                 CarPlayLink.shared.publish(nil)

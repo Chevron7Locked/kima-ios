@@ -21,8 +21,17 @@ class KeychainLoginTestCase: XCTestCase {
         XCTAssertTrue(KeychainStore.clearCredentials())
     }
 
-    override func tearDown() {
+    /// XCTest prefers an async `tearDown` over the sync one, so this is the single teardown
+    /// path for every subclass. Subclasses that leave background loops running stop them in
+    /// `quiesce()`; the HTTP-state reset and login restore below then run last, so no stray
+    /// request can land after the wipe or outlive the suite.
+    override func tearDown() async throws {
+        await quiesce()
         StubURLProtocol.reset()
         savedLogin.restore()
     }
+
+    /// Hook for suites that start loops: stop what you started here and let in-flight requests
+    /// settle. Runs before the reset and restore; does nothing by default.
+    func quiesce() async {}
 }

@@ -34,7 +34,7 @@ extension PlaybackController {
         }
     }
 
-    /// Stop the keeper. `AppEnvironment.teardown()` calls this on sign-out, so a released
+    /// Stop the keeper. `SessionBootstrap.stop()` calls this on sign-out, so a released
     /// environment can never keep minting stream tickets for an app that is no longer signed in.
     func stopKeepingStreamTicketWarm() {
         ticketWarmTask?.cancel()

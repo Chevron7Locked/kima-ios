@@ -4,7 +4,7 @@ import UIKit
 // MARK: - SSE Engine
 // Owns the long-lived GET /api/events stream, opened with a short-lived ticket instead of an Authorization header.
 // @MainActor is fine: URLSession.bytes suspends cooperatively and events are sparse. Background stops the stream;
-// foreground relaunches and refreshes once (SSE has no replay). RootView calls teardown() on logout.
+// foreground relaunches and refreshes once (SSE has no replay). SessionBootstrap.stop() calls teardown() on sign-out.
 
 @MainActor
 @Observable
@@ -85,13 +85,13 @@ final class SSEManager {
     }
 
     // No deinit cleanup on purpose: in Swift 6 deinit is non-isolated, so touching the @MainActor `streamTask`
-    // there is a compiler error. RootView calls teardown() on .unauthenticated before releasing AppEnvironment,
-    // which cancels the stream on the main actor.
+    // there is a compiler error. RootView's stop-and-release runs SessionBootstrap.stop(), which calls
+    // teardown() before releasing AppEnvironment, cancelling the stream on the main actor.
 
     // MARK: - Public API
 
-    /// Start the SSE stream. Call once from AppEnvironment.init after the client is ready.
-    /// Subsequent calls replace the active stream (safe to call on server-switch).
+    /// Start the SSE stream. Called once by `SessionBootstrap.start()`; the bootstrap owns when
+    /// a session's lifecycle begins and ends. Subsequent calls replace the active stream.
     func start(client: KimaAPIClient, server: KimaServer) {
         storedClient = client
         storedServer = server

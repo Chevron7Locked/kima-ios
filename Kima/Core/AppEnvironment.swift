@@ -18,9 +18,11 @@ extension Notification.Name {
 }
 
 /// Authenticated-scope dependency container, one per user session. RootView creates it on `.authenticated`
-/// and clears it on sign-out so a new server gets a fresh one.
-/// RootView must call `events.teardown()` on `.unauthenticated` BEFORE setting it to nil, so the SSE stream and
-/// observers stop on the main actor first (see SSEManager.swift for why deinit can't do it).
+/// and clears it on sign-out so a new server gets a fresh one. Constructing it is inert (ticket 12): no
+/// network activity, no global mutation — previews that build one stay offline. The signed-in session's
+/// network lifecycle lives in `bootstrap`: RootView calls `bootstrap.start()` once the bag exists and
+/// `bootstrap.stop()` on `.unauthenticated` BEFORE setting it to nil, so every loop stops on the main
+/// actor first (see SSEManager.swift for why deinit can't do it).
 @MainActor
 @Observable
 final class AppEnvironment {
@@ -128,14 +130,21 @@ final class AppEnvironment {
         #endif
     }
 
-    @ObservationIgnored private var tokenObserver: NSObjectProtocol? = nil
+    /// The session's network lifecycle: one `start()` opens the event stream, the warm-ticket
+    /// keeper, sync polling, cover-art auth wiring, and the rotation observer; one `stop()` ends
+    /// them in their safe order. Constructing this bag starts nothing (ticket 12).
+    let bootstrap: SessionBootstrap
 
-    init(server: KimaServer) {
+    /// `sessions` is the factory seam (ticket 08): every client and stream this bag builds rides
+    /// it, so a unit test can stand a whole session on stub transports; previews build one and
+    /// never start it, which is why they stay offline.
+    init(server: KimaServer, sessions: any SessionFactory = .production) {
         self.server = server
-        let apiClient = KimaAPIClient(server: server, credential: KimaCredential.fromKeychain(for: server))
+        let apiClient = KimaAPIClient(server: server, credential: KimaCredential.fromKeychain(for: server),
+                                      sessions: sessions)
         let playbackController = PlaybackController(server: server)
         let coordinator = PlaybackSyncCoordinator(controller: playbackController, client: apiClient)
-        let sseManager = SSEManager()
+        let sseManager = SSEManager(sessions: sessions)
         self.client = apiClient
         self.player = playbackController
         self.sync = coordinator
@@ -143,51 +152,15 @@ final class AppEnvironment {
         self.router = NavigationRouter()
         self.whatsNew = WhatsNewGateModel(client: apiClient)
         self.issueReports = IssueReportStore()
-        // Wire syncHook before calling start() so no mutation events are missed.
+        // Wire syncHook before any start() so no mutation events are missed.
         // Weak capture of coordinator breaks the potential AppEnvironment → player →
         // syncHook closure → coordinator retain cycle.
         playbackController.syncHook = { [weak coordinator] in coordinator?.scheduleStateSave() }
         // Wire the API client so music-track loaders can fetch a stream ticket.
         playbackController.apiClient = apiClient
-        // Mint the stream ticket ahead of the first tap: every play path mints one inline, so the
-        // first play of a session would otherwise pay a round trip before the player gets a URL.
-        // AppEnvironment is authenticated-scope (see the type doc), so this is a mint at sign-in.
-        playbackController.startKeepingStreamTicketWarm()
         // Play reporting: the listen meter POSTs /plays fire-and-forget (web parity).
         playbackController.attachPlayReporting(client: apiClient)
-        coordinator.start()
-        // Start the SSE stream; the manager also fires an initial refreshNotifications() Task.
-        sseManager.start(client: apiClient, server: server)
-        // Configure ImageCache to send the auth header on cover-art requests to our server.
-        // The closure captures `apiClient` (the actor), re-reading the credential on each miss
-        // so token refreshes and login/logout are handled without re-configuring.
-        Task { await ImageCache.shared.configure(serverHost: server.baseURL.host(percentEncoded: false)) { await apiClient.authHeader() } }
-        // Observe token rotations so the cached stream ticket is dropped. Weak
-        // capture prevents a retain cycle (block → self → tokenObserver → block). After
-        // AppEnvironment deinits, the guard ensures the block is a no-op until the next
-        // NotificationCenter GC removes it.
-        tokenObserver = NotificationCenter.default.addObserver(
-            forName: .kimaAccessTokenRotated,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            // queue: .main delivers on the main queue, but the block is a
-            // nonisolated context — hop so the mutation of the @MainActor
-            // property is isolation-checked (compiler warning otherwise).
-            Task { @MainActor [weak self] in
-                // Also drop the cached stream ticket so the next play request fetches a fresh one.
-                await self?.client.invalidateStreamTicket()
-                // And re-mint now: the warm ticket has to follow the new token, and the keeper's
-                // own sleep runs to half the ticket's lifetime — hours, for a 4-hour ticket.
-                self?.player.stopKeepingStreamTicketWarm()
-                self?.player.startKeepingStreamTicketWarm()
-            }
-        }
-    }
-
-    deinit {
-        if let obs = tokenObserver {
-            NotificationCenter.default.removeObserver(obs)
-        }
+        self.bootstrap = SessionBootstrap(server: server, client: apiClient, player: playbackController,
+                                          sync: coordinator, events: sseManager)
     }
 }

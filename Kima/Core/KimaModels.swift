@@ -36,8 +36,11 @@ struct DeviceLinkVerifyResponse: Codable {
 }
 
 /// POST /api/onboarding/register response — returns a JWT token + the new user on success.
+/// `refreshToken` arrives from servers ≥1.13 (mirrors login); nil from older ones, where the
+/// account signs in without silent re-login until the server is updated.
 struct OnboardingRegisterResponse: Codable {
     let token: String?
+    let refreshToken: String?
     let user: KimaUser?
 }
 

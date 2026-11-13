@@ -11,13 +11,12 @@ enum DeviceLinkResult: Equatable {
     case failed(message: String, canRetry: Bool)
 }
 
-/// The one place a pairing code becomes a signed-in device: send the code, save the API key for that
-/// server, drop every other stored login, remember the server address. The typed-code path and the
-/// QR path both end here.
+/// The one place a pairing code becomes a signed-in device: send the code, then hand the API key
+/// to `LoginRitual.establish` — the one ritual that stores it, drops every other stored login,
+/// and remembers the server address. The typed-code path and the QR path both end here.
 @MainActor
 struct DeviceLinker {
-    var makeClient: (KimaServer) -> KimaAPIClient = { KimaAPIClient(server: $0) }
-    var persistServer: (KimaServer) -> Void = { ServerURLStore.setStored($0.baseURL.absoluteString) }
+    var makeClient: APIClientMaker = defaultAPIClientMaker
     var deviceName: () -> String = {
         #if canImport(UIKit)
         UIDevice.current.name
@@ -31,7 +30,7 @@ struct DeviceLinker {
     func link(code: String, server: KimaServer) async -> DeviceLinkResult {
         let response: DeviceLinkVerifyResponse
         do {
-            let client = makeClient(server)
+            let client = makeClient(server, nil)
             let name = deviceName()
             response = try await LinkKeepAlive.during {
                 try await client.deviceLinkVerify(code: code, deviceName: name)
@@ -44,11 +43,9 @@ struct DeviceLinker {
         guard response.success, let apiKey = response.apiKey else {
             return .failed(message: Self.badCode, canRetry: false)
         }
-        guard KeychainStore.setCredential(apiKey, for: KeychainStore.apiKey, server: server) else {
+        guard LoginRitual.establish(.apiKey(apiKey), at: server) else {
             return .failed(message: "couldn't securely save your device link. please try again.", canRetry: false)
         }
-        KeychainStore.clearCredentials(except: [KeychainStore.apiKey])   // drops any other server's tokens
-        persistServer(server)
         return .linked
     }
 

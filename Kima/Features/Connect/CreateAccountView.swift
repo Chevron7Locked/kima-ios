@@ -4,8 +4,9 @@ import Observation
 // MARK: - ViewModel
 
 /// Drives the first-account registration flow: POST /api/onboarding/register →
-/// store JWT → POST /api/onboarding/complete. On success, signals `.registered`
-/// so the view navigates to `SyncProgressView`.
+/// `LoginRitual.establish` (token, refresh token when the server sends one, address) →
+/// POST /api/onboarding/complete. On success, signals `.registered` so the view navigates
+/// to `SyncProgressView`.
 @MainActor
 @Observable
 final class CreateAccountViewModel {
@@ -18,6 +19,9 @@ final class CreateAccountViewModel {
     var password: String = ""
     var confirmPassword: String = ""
     var phase: Phase = .idle
+
+    /// API-client seam (`APIClientMaker`): tests hand themselves a stubbed client.
+    var makeClient: APIClientMaker = defaultAPIClientMaker
 
     init(server: KimaServer) { self.server = server }
 
@@ -36,7 +40,7 @@ final class CreateAccountViewModel {
             return
         }
         phase = .working
-        let client = KimaAPIClient(server: server)
+        let client = makeClient(server, nil)
         do {
             let response = try await client.onboardingRegister(username: username, password: password)
             guard let token = response.token else {
@@ -45,15 +49,13 @@ final class CreateAccountViewModel {
                 phase = .failed("your account may have been created, but sign-in failed. go back and sign in.")
                 return
             }
-            guard KeychainStore.setCredential(token, for: KeychainStore.accessToken, server: server) else {
+            guard LoginRitual.establish(.jwt(accessToken: token, refreshToken: response.refreshToken),
+                                        at: server) else {
                 phase = .failed("couldn't securely save your sign-in. please try again.")
                 return
             }
-            KeychainStore.clearCredentials(except: [KeychainStore.accessToken])   // drops any other server's login
-            // Persist server URL so SessionStore.didAuthenticate() can read it after sync.
-            ServerURLStore.setStored(server.baseURL.absoluteString)
             // Mark onboarding complete (best-effort — proceed to library scan even if this fails).
-            let authedClient = KimaAPIClient(server: server, credential: .jwt(token))
+            let authedClient = makeClient(server, .jwt(token))
             await authedClient.onboardingComplete()
             phase = .registered
         } catch let error as APIError {

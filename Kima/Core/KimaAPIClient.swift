@@ -12,6 +12,11 @@ func apiDurationMs(since start: ContinuousClock.Instant) -> Int {
     return Int(c.seconds) * 1000 + Int(c.attoseconds / 1_000_000_000_000_000)
 }
 
+/// The API-client seam shared by every sign-in path (view models, `DeviceLinker`): production
+/// mints clients on the real sessions; a test replaces the property with its own stub factory.
+typealias APIClientMaker = (KimaServer, KimaCredential?) -> KimaAPIClient
+let defaultAPIClientMaker: APIClientMaker = { KimaAPIClient(server: $0, credential: $1) }
+
 /// Talks to one Kima server: builds requests, attaches auth, decodes JSON, maps errors.
 /// An actor so credential state is safe across concurrent calls.
 actor KimaAPIClient {

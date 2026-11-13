@@ -4,7 +4,8 @@ import Observation
 /// Connect to an EXISTING account, two ways:
 ///  • password sign-in (POST /api/auth/login, with 2FA via APIError.requires2FA), or
 ///  • device-link pairing code (see DeviceLinker).
-/// On success the credential is stored in the Keychain and the server URL persisted.
+/// On success both paths end in `LoginRitual.establish` — the one place a fresh credential
+/// becomes a stored login and a remembered server address.
 @MainActor
 @Observable
 final class SignInViewModel {
@@ -24,6 +25,9 @@ final class SignInViewModel {
     var pairingCode = ""
 
     var phase: Phase = .idle
+
+    /// API-client seam (`APIClientMaker`): tests hand themselves a stubbed client.
+    var makeClient: APIClientMaker = defaultAPIClientMaker
 
     private let linker: DeviceLinker
 
@@ -52,7 +56,7 @@ final class SignInViewModel {
     private func signInWithPassword() async {
         guard phase != .working else { return }
         phase = .working
-        let client = KimaAPIClient(server: server)
+        let client = makeClient(server, nil)
         do {
             let response = try await client.login(
                 username: username,
@@ -73,15 +77,11 @@ final class SignInViewModel {
                 }
                 return
             }
-            guard KeychainStore.setCredential(accessToken, for: KeychainStore.accessToken, server: server) else {
+            guard LoginRitual.establish(.jwt(accessToken: accessToken, refreshToken: response.refreshToken),
+                                        at: server) else {
                 phase = .failed("couldn't securely save your sign-in. please try again.")
                 return
             }
-            KeychainStore.setCredential(response.refreshToken, for: KeychainStore.refreshToken, server: server)  // best-effort
-            // Drop any other stored login, e.g. another server's API key, which would otherwise
-            // win over this token and be sent to this server.
-            KeychainStore.clearCredentials(except: [KeychainStore.accessToken, KeychainStore.refreshToken])
-            persistServerURL()
             phase = .success
         } catch APIError.requires2FA {
             needs2FA = true
@@ -107,9 +107,5 @@ final class SignInViewModel {
         case .cancelled:             phase = .idle
         case .failed(let message, _): phase = .failed(message)
         }
-    }
-
-    private func persistServerURL() {
-        ServerURLStore.setStored(server.baseURL.absoluteString)
     }
 }

@@ -2,26 +2,13 @@ import XCTest
 @testable import Kima
 
 @MainActor
-final class DevicePairingViewModelTests: XCTestCase {
+final class DevicePairingViewModelTests: KeychainLoginTestCase {
     private let server = KimaServer(baseURL: URL(string: "https://link.example:8443")!)
-    private var savedLogin = KeychainLoginSnapshot()
-    private var persisted: [KimaServer] = []
     private var linked = 0
 
     override func setUpWithError() throws {
-        StubURLProtocol.reset()
-        persisted = []
+        try super.setUpWithError()   // snapshot, clean slate, hard writability assert (ticket 10 ruling)
         linked = 0
-        savedLogin = KeychainLoginSnapshot()
-        guard KeychainStore.setCredential("probe", for: KeychainStore.apiKey, server: server) else {
-            throw XCTSkip("Keychain writes are unavailable in this test host")
-        }
-        XCTAssertTrue(KeychainStore.clearCredentials())
-    }
-
-    override func tearDown() {
-        StubURLProtocol.reset()
-        savedLogin.restore()
     }
 
     private var link: DevicePairingLink { DevicePairingLink(code: "ABC234", server: server) }
@@ -29,8 +16,7 @@ final class DevicePairingViewModelTests: XCTestCase {
     private func makeVM(_ request: DevicePairingRequest? = nil,
                         phase: SessionStore.Phase = .unauthenticated) -> DevicePairingViewModel {
         var linker = DeviceLinker()
-        linker.makeClient = { KimaAPIClient(server: $0, sessions: StubSessionFactory()) }
-        linker.persistServer = { [unowned self] in persisted.append($0) }
+        linker.makeClient = { at, _ in KimaAPIClient(server: at, sessions: StubSessionFactory()) }
         linker.deviceName = { "test phone" }
         return DevicePairingViewModel(request: request ?? .link(link), linker: linker,
                                       currentPhase: { phase }, onLinked: { [unowned self] in linked += 1 })
@@ -58,7 +44,7 @@ final class DevicePairingViewModelTests: XCTestCase {
         XCTAssertEqual(StubURLProtocol.posts(to: "/device-link/verify").first?["code"] as? String, "ABC234")
         XCTAssertEqual(StubURLProtocol.posts(to: "/device-link/verify").first?["deviceName"] as? String, "test phone")
         XCTAssertEqual(KeychainStore.credential(KeychainStore.apiKey, for: server), "key-1")
-        XCTAssertEqual(persisted, [server])
+        XCTAssertEqual(ServerURLStore.stored, "https://link.example:8443")
         XCTAssertEqual(linked, 1)
     }
 
@@ -80,7 +66,7 @@ final class DevicePairingViewModelTests: XCTestCase {
             XCTAssertEqual(vm.step, .failed(message: message, retry: canRetry ? link : nil), "\(status)")
         }
         XCTAssertNil(KeychainStore.credential(KeychainStore.apiKey, for: server))
-        XCTAssertTrue(persisted.isEmpty)
+        XCTAssertNil(ServerURLStore.stored)
         XCTAssertEqual(linked, 0)
     }
 
@@ -120,7 +106,7 @@ final class DevicePairingViewModelTests: XCTestCase {
         await Task.yield()
         try? await Task.sleep(for: .milliseconds(100))
         XCTAssertNil(KeychainStore.credential(KeychainStore.apiKey, for: server))
-        XCTAssertTrue(persisted.isEmpty)
+        XCTAssertNil(ServerURLStore.stored)
         XCTAssertEqual(linked, 0)
         XCTAssertEqual(vm.step, .confirm(link))
     }

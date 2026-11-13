@@ -115,7 +115,7 @@ struct DiscoverView: View {
             if !featured.isEmpty {
                 VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                     ForEach(Array(featured.enumerated()), id: \.element.id) { i, track in
-                        DiscoverFeaturedRow(
+                        let row = DiscoverRowDispatch(
                             track: track,
                             index: i + 2,
                             displayState: player.displayState(of: track.id),
@@ -123,6 +123,7 @@ struct DiscoverView: View {
                             onTogglePlay: { player.togglePlayPause() },
                             onLike: { Task { await vm.toggleLike(track: track, using: env.client) } }
                         )
+                        DiscoverFeaturedRow(row: row)
                     }
                 }
                 .padding(.bottom, tail.isEmpty ? 0 : KimaSpacing.sm)
@@ -132,7 +133,7 @@ struct DiscoverView: View {
                 KimaSectionHeader(title: "more from this week")
 
                 ForEach(Array(tail.enumerated()), id: \.element.id) { i, track in
-                    DiscoverCrateRow(
+                    let row = DiscoverRowDispatch(
                         track: track,
                         index: i + 2 + featured.count,
                         displayState: player.displayState(of: track.id),
@@ -140,6 +141,7 @@ struct DiscoverView: View {
                         onTogglePlay: { player.togglePlayPause() },
                         onLike: { Task { await vm.toggleLike(track: track, using: env.client) } }
                     )
+                    DiscoverCrateRow(row: row)
                 }
             }
         }

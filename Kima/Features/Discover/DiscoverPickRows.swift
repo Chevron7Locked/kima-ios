@@ -1,11 +1,11 @@
 import SwiftUI
 
-// MARK: - DiscoverFeaturedRow
+// MARK: - DiscoverRowDispatch
 //
-// The next couple of picks after the featured hero card, cover-forward but scaled down. With DiscoverFeaturedPick
-// and DiscoverCrateRow this steps the crate down in size: hero, featured, dense tail.
+// What every Discover track row shares: the inputs and the dispatch decision (ADR 0001).
+// The rows differ only in layout; this is the shape they all carry.
 
-struct DiscoverFeaturedRow: View {
+struct DiscoverRowDispatch {
     let track: DiscoverTrack
     /// 1-based setlist index, continuing the count from the featured pick (which is 01).
     let index: Int
@@ -16,29 +16,38 @@ struct DiscoverFeaturedRow: View {
     let onTogglePlay: () -> Void
     let onLike: () -> Void
 
-    @Environment(AppEnvironment.self) private var env
-
     /// This track holds the playback session — the dispatch question (ADR 0001).
-    private var isCurrent: Bool { displayState != .none }
+    var isCurrent: Bool { displayState != .none }
 
-    private func handleTap() {
+    func handleTap() {
         if isCurrent { onTogglePlay() } else { onPlay() }
     }
+}
+
+// MARK: - DiscoverFeaturedRow
+//
+// The next couple of picks after the featured hero card, cover-forward but scaled down. With DiscoverFeaturedPick
+// and DiscoverCrateRow this steps the crate down in size: hero, featured, dense tail.
+
+struct DiscoverFeaturedRow: View {
+    let row: DiscoverRowDispatch
+
+    @Environment(AppEnvironment.self) private var env
 
     var body: some View {
         HStack(alignment: .center, spacing: KimaSpacing.md) {
-            Text(String(format: "%02d", index))
+            Text(String(format: "%02d", row.index))
                 .font(KimaType.body)
                 .monospacedDigit()
-                .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textMuted)
+                .foregroundStyle(row.isCurrent ? env.accent.color : KimaColor.textMuted)
                 .frame(width: 24, alignment: .leading)
 
             ZStack {
                 CoverArtImage(
-                    coverId: track.coverUrl,
+                    coverId: row.track.coverUrl,
                     size: 256,
                     cornerRadius: KimaRadius.image,
-                    accessibilityLabel: "\(track.title) — \(track.artist)"
+                    accessibilityLabel: "\(row.track.title) — \(row.track.artist)"
                 )
                 .frame(width: 72, height: 72)
                 .kimaSleeveElevation(cornerRadius: KimaRadius.image)
@@ -47,20 +56,20 @@ struct DiscoverFeaturedRow: View {
                         .strokeBorder(KimaColor.hairline, lineWidth: 1)
                 )
 
-                if isCurrent {
+                if row.isCurrent {
                     Circle().fill(KimaColor.discGlass).frame(width: 30, height: 30)
-                    DiscoverPlayGlyph(isPlaying: displayState == .playing)
+                    DiscoverPlayGlyph(isPlaying: row.displayState == .playing)
                 }
             }
 
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
-                Text(track.title.lowercased())
+                Text(row.track.title.lowercased())
                     .font(KimaType.bodyStrong)
-                    .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textPrimary)
+                    .foregroundStyle(row.isCurrent ? env.accent.color : KimaColor.textPrimary)
                     .lineLimit(1)
                 HStack(spacing: KimaSpacing.sm) {
-                    DiscoverTierIndicator(tier: track.tier)
-                    Text(track.artist.lowercased())
+                    DiscoverTierIndicator(tier: row.track.tier)
+                    Text(row.track.artist.lowercased())
                         .font(KimaType.caption)
                         .foregroundStyle(KimaColor.textMuted)
                         .lineLimit(1)
@@ -68,17 +77,17 @@ struct DiscoverFeaturedRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(track.duration.durationFormatted)
+            Text(row.track.duration.durationFormatted)
                 .font(KimaType.caption)
                 .monospacedDigit()
                 .foregroundStyle(KimaColor.textMuted)
 
-            DiscoverLikeButton(isLiked: track.isLiked, action: onLike)
+            DiscoverLikeButton(isLiked: row.track.isLiked, action: row.onLike)
         }
         .padding(.vertical, KimaSpacing.sm)
         .padding(.horizontal, KimaSpacing.lg)
         .contentShape(Rectangle())
-        .onTapGesture { handleTap() }
+        .onTapGesture { row.handleTap() }
     }
 }
 
@@ -88,32 +97,18 @@ struct DiscoverFeaturedRow: View {
 // shown as a quiet dot instead of a capsule badge.
 
 struct DiscoverCrateRow: View {
-    let track: DiscoverTrack
-    let index: Int
-    /// How this track's control reads (engine truth scoped by identity, ADR 0001) — the one
-    /// derived value behind the glyph, the tint, and what a tap honors.
-    let displayState: RowDisplayState
-    let onPlay: () -> Void
-    let onTogglePlay: () -> Void
-    let onLike: () -> Void
+    let row: DiscoverRowDispatch
 
     @Environment(AppEnvironment.self) private var env
 
-    /// This track holds the playback session — the dispatch question (ADR 0001).
-    private var isCurrent: Bool { displayState != .none }
-
-    private func handleTap() {
-        if isCurrent { onTogglePlay() } else { onPlay() }
-    }
-
     var body: some View {
         HStack(spacing: KimaSpacing.md) {
-            Button(action: handleTap) {
+            Button(action: row.handleTap) {
                 ZStack {
-                    if isCurrent {
-                        DiscoverPlayGlyph(isPlaying: displayState == .playing)
+                    if row.isCurrent {
+                        DiscoverPlayGlyph(isPlaying: row.displayState == .playing)
                     } else {
-                        Text(String(format: "%02d", index))
+                        Text(String(format: "%02d", row.index))
                             .font(KimaType.caption)
                             .monospacedDigit()
                             .foregroundStyle(KimaColor.textMuted)
@@ -124,10 +119,10 @@ struct DiscoverCrateRow: View {
             .buttonStyle(.plain)
 
             CoverArtImage(
-                coverId: track.coverUrl,
+                coverId: row.track.coverUrl,
                 size: 96,
                 cornerRadius: KimaRadius.image,
-                accessibilityLabel: "\(track.title) — \(track.artist)"
+                accessibilityLabel: "\(row.track.title) — \(row.track.artist)"
             )
             .frame(width: 48, height: 48)
             .overlay(
@@ -136,32 +131,32 @@ struct DiscoverCrateRow: View {
             )
 
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
-                Text(track.title.lowercased())
+                Text(row.track.title.lowercased())
                     .font(KimaType.headline)
-                    .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textPrimary)
+                    .foregroundStyle(row.isCurrent ? env.accent.color : KimaColor.textPrimary)
                     .lineLimit(1)
-                Text(track.artist.lowercased())
+                Text(row.track.artist.lowercased())
                     .font(KimaType.caption)
                     .foregroundStyle(KimaColor.textMuted)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            DiscoverTierIndicator(tier: track.tier, compact: true)
+            DiscoverTierIndicator(tier: row.track.tier, compact: true)
 
-            Text(track.duration.durationFormatted)
+            Text(row.track.duration.durationFormatted)
                 .font(KimaType.caption)
                 .monospacedDigit()
                 .foregroundStyle(KimaColor.textMuted)
                 .frame(minWidth: 34, alignment: .trailing)
 
-            DiscoverLikeButton(isLiked: track.isLiked, action: onLike)
+            DiscoverLikeButton(isLiked: row.track.isLiked, action: row.onLike)
         }
         .padding(.vertical, KimaSpacing.md)
         .padding(.horizontal, KimaSpacing.lg)
-        .background(isCurrent ? KimaColor.surface : Color.clear)
+        .background(row.isCurrent ? KimaColor.surface : Color.clear)
         .contentShape(Rectangle())
-        .onTapGesture { handleTap() }
+        .onTapGesture { row.handleTap() }
     }
 }
 

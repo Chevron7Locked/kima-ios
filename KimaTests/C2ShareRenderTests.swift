@@ -62,11 +62,11 @@ final class C2ShareRenderTests: XCTestCase {
             VStack(spacing: KimaSpacing.md) {
                 DiscoverFeaturedPick(track: a, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {})
                 DiscoverFeaturedPick(track: b, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverFeaturedRow(track: b, index: 2, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverFeaturedRow(track: c, index: 3, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverCrateRow(track: a, index: 4, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverCrateRow(track: b, index: 5, displayState: .current, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverCrateRow(track: c, index: 6, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverFeaturedRow(row: DiscoverRowDispatch(track: b, index: 2, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {}))
+                DiscoverFeaturedRow(row: DiscoverRowDispatch(track: c, index: 3, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {}))
+                DiscoverCrateRow(row: DiscoverRowDispatch(track: a, index: 4, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {}))
+                DiscoverCrateRow(row: DiscoverRowDispatch(track: b, index: 5, displayState: .current, onPlay: {}, onTogglePlay: {}, onLike: {}))
+                DiscoverCrateRow(row: DiscoverRowDispatch(track: c, index: 6, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {}))
             }
             .padding(.top, 60)
         }

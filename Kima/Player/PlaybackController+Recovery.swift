@@ -144,17 +144,16 @@ extension PlaybackController {
     /// loadStream's terminal error with the queue kept; a repeat failure comes back through
     /// `handleFailed`, and reaching .readyToPlay resets the budget.
     func rebuildCurrentItem(at position: Double, autoplay: Bool) {
-        let client = playbackType.isLongForm ? longFormAPIClient : apiClient
-        let prepare: @MainActor () async -> Void = { await client?.invalidateStreamTicket() }
+        // Drop the cached ticket first: a clock-valid ticket the server just rejected would fail the rebuild too.
+        let prepare: @MainActor () async -> Void = { [weak self] in self?.streamSource?.dropTicket() }
         switch playbackType {
         case .track:
             guard queue.indices.contains(currentIndex) else { return }
             let track = queue[currentIndex]
             let claim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-            loadStream(claim: claim, client: client, autoplay: autoplay, seekTo: position > 0 ? position : nil,
-                       prepare: prepare) { [weak self] token in
-                guard let self else { return nil }
-                return StreamURL.track(base: self.server, trackId: track.id, token: token)
+            loadStream(claim: claim, autoplay: autoplay, seekTo: position > 0 ? position : nil,
+                       prepare: prepare) { source in
+                await source.playableURL(trackId: track.id)
             }
         case .audiobook, .podcastEpisode:
             rebuildLongFormStream(at: position, autoplay: autoplay, prepare: prepare)

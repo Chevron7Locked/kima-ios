@@ -59,15 +59,6 @@ final class AppEnvironmentBootstrapTests: KeychainLoginTestCase {
         return env
     }
 
-    /// Polls until `condition` holds or the deadline passes; the lifecycle tasks run on the main
-    /// actor cooperatively, so awaiting here lets them advance.
-    private func waitUntil(_ timeout: TimeInterval = 2, _ condition: () async -> Bool) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !(await condition()), Date() < deadline {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-    }
-
     private var paths: [String] { StubURLProtocol.requests.compactMap(\.url?.path) }
 
     /// The five paths one open lifecycle must show: the warm stream-ticket keeper, the event

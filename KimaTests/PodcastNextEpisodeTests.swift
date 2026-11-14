@@ -17,7 +17,12 @@ final class PodcastNextEpisodeTests: XCTestCase {
         let c = PlaybackController.stubbed()
         let list = [try Episode.fixture("e3"), try Episode.fixture("e2"), try Episode.fixture("e1")]
         c.playbackType = .podcastEpisode(podcastId: "p", episode: list[1], queue: list)
-        c.longFormAPIClient = .stubbed()
+        // One client for both paths, as production wires it: the /next ask and the fallback row's
+        // ticket mint share one session, so a slow /next holds the mint behind it — which is what
+        // keeps that row still loading (its load claim alive) when a late answer lands.
+        let client = KimaAPIClient.stubbed()
+        c.longFormAPIClient = client
+        c.streamSource = StreamSource(server: c.server, client: client)
         c.engine.status = .paused
         return c
     }

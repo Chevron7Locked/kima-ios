@@ -79,12 +79,10 @@ extension PlaybackController {
             finishAudiobook(session: session)
         } else if let nextFile = session.nextFile(after: currentFile) {
             currentLongFormFileIndex = nextFile.index
-            let client = longFormAPIClient
             let endClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-            loadStream(claim: endClaim, client: client, autoplay: autoplay, seekTo: nil,
-                       afterLoad: { [weak self] in self?.nowPlayingHook?() }) { [weak self] token in
-                guard let self else { return nil }
-                return StreamURL.audiobook(base: self.server, bookId: session.bookId, index: nextFile.index, token: token)
+            loadStream(claim: endClaim, autoplay: autoplay, seekTo: nil,
+                       afterLoad: { [weak self] in self?.nowPlayingHook?() }) { source in
+                await source.playableURL(bookId: session.bookId, index: nextFile.index)
             }
         }
     }

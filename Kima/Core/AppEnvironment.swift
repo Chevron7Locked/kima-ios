@@ -4,8 +4,8 @@ import Observation
 // MARK: - Notification names
 
 extension Notification.Name {
-    /// Posted by `KimaAPIClient.refreshAccessToken()` after a successful token rotation so
-    /// `AppEnvironment` can drop its cached stream ticket.
+    /// Posted by `KimaAPIClient.refreshAccessToken()` after a successful token rotation so the
+    /// session's `StreamSource` drops its warm ticket and remakes it against the new token.
     static let kimaAccessTokenRotated = Notification.Name("kima.accessTokenRotated")
 
     /// Posted by `SSEManager` when a ticket mint or stream connection returns 401/403,
@@ -43,6 +43,11 @@ final class AppEnvironment {
     /// save and 30-second poll loops. Wired to `player.syncHook` so queue/index/shuffle
     /// mutations auto-schedule a server save without the player knowing about networking.
     let sync: PlaybackSyncCoordinator
+
+    /// The session's stream-ticket module (ticket 13): mints, caches to half-life, keeps warm
+    /// ahead of taps, drops on rotation — the player paths ask it for playable URLs. Built inert;
+    /// `bootstrap` opens and closes its lifecycle with the session.
+    let stream: StreamSource
 
     /// SSE real-time engine. Owns the persistent GET /api/events stream, dispatches
     /// notification and progress events, and exposes observable state + action methods
@@ -130,9 +135,9 @@ final class AppEnvironment {
         #endif
     }
 
-    /// The session's network lifecycle: one `start()` opens the event stream, the warm-ticket
-    /// keeper, sync polling, cover-art auth wiring, and the rotation observer; one `stop()` ends
-    /// them in their safe order. Constructing this bag starts nothing (ticket 12).
+    /// The session's network lifecycle: one `start()` opens the stream source, the event stream,
+    /// sync polling, and cover-art auth wiring; one `stop()` ends them in their safe order.
+    /// Constructing this bag starts nothing (ticket 12).
     let bootstrap: SessionBootstrap
 
     /// `sessions` is the factory seam (ticket 08): every client and stream this bag builds rides
@@ -145,8 +150,10 @@ final class AppEnvironment {
         let playbackController = PlaybackController(server: server)
         let coordinator = PlaybackSyncCoordinator(controller: playbackController, client: apiClient)
         let sseManager = SSEManager(sessions: sessions)
+        let streamSource = StreamSource(server: server, client: apiClient)
         self.client = apiClient
         self.player = playbackController
+        self.stream = streamSource
         self.sync = coordinator
         self.events = sseManager
         self.router = NavigationRouter()
@@ -156,11 +163,13 @@ final class AppEnvironment {
         // Weak capture of coordinator breaks the potential AppEnvironment → player →
         // syncHook closure → coordinator retain cycle.
         playbackController.syncHook = { [weak coordinator] in coordinator?.scheduleStateSave() }
-        // Wire the API client so music-track loaders can fetch a stream ticket.
+        // Wire the player's networking: the stream source answers playable URLs, and the client
+        // stays for the expired-session probe after a refused mint.
+        playbackController.streamSource = streamSource
         playbackController.apiClient = apiClient
         // Play reporting: the listen meter POSTs /plays fire-and-forget (web parity).
         playbackController.attachPlayReporting(client: apiClient)
-        self.bootstrap = SessionBootstrap(server: server, client: apiClient, player: playbackController,
+        self.bootstrap = SessionBootstrap(server: server, client: apiClient, stream: streamSource,
                                           sync: coordinator, events: sseManager)
     }
 }

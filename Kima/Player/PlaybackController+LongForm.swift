@@ -154,12 +154,10 @@ extension PlaybackController {
                 // Cross-file seek — reload the new file at fileTime.
                 currentLongFormFileIndex = file.index
                 let shouldAutoplay = engine.isPlaying || engine.status == .buffering
-                let client = longFormAPIClient
                 let seekClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-                loadStream(claim: seekClaim, client: client, autoplay: shouldAutoplay,
-                           seekTo: fileTime > 0 ? fileTime : nil) { [weak self] token in
-                    guard let self else { return nil }
-                    return StreamURL.audiobook(base: self.server, bookId: session.bookId, index: file.index, token: token)
+                loadStream(claim: seekClaim, autoplay: shouldAutoplay,
+                           seekTo: fileTime > 0 ? fileTime : nil) { source in
+                    await source.playableURL(bookId: session.bookId, index: file.index)
                 }
             } else {
                 engine.seek(to: fileTime)

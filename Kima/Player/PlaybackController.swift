@@ -4,7 +4,7 @@ import Observation
 
 /// Business-logic layer above `PlaybackEngine`: queue state, shuffle/repeat, skip debounce, error policy. Views use
 /// only this class. `@MainActor` throughout (AVFoundation state lives there). Stream URLs carry a short-lived ticket
-/// (`resolveStreamToken`); only a ticketless server gets the login token. `NowPlayingController` is wired to
+/// and come from `streamSource`; only a ticketless server gets the login token. `NowPlayingController` is wired to
 /// `nowPlayingHook`; remote commands route back here.
 @MainActor
 @Observable
@@ -141,15 +141,15 @@ final class PlaybackController {
     /// cleared in `stopLongForm()` to prevent phantom saves after teardown.
     var longFormAPIClient: KimaAPIClient?
 
-    /// Reference to the API client for stream-ticket fetching. Set by AppEnvironment
-    /// after init; kept non-nil for the duration of the authenticated session.
-    /// Used by music-track loaders; long-form loaders use `longFormAPIClient` instead.
+    /// Reference to the API client for the expired-session probe (`sessionHasExpired`) after a
+    /// refused mint. Set by AppEnvironment after init; kept non-nil for the duration of the
+    /// authenticated session. Stream URLs no longer come from here — they come from `streamSource`.
     var apiClient: KimaAPIClient?
 
-    /// Keeps a stream ticket minted ahead of any tap. Started once by `AppEnvironment`.
-    /// Internal, not private: the keeper loop lives in `PlaybackController+Streaming.swift`,
-    /// and Swift denies extensions in other files access to private members.
-    var ticketWarmTask: Task<Void, Never>?
+    /// The session's stream-ticket module (ticket 13): every load path asks it for a playable
+    /// URL and never sees a ticket. Set by AppEnvironment alongside `apiClient`; nil until then
+    /// (previews, silent test hosts), which answers like a refused mint.
+    var streamSource: StreamSource?
 
     /// Cancellable 15-second progress-save timer task. Internal — managed by the long-form extensions.
     var progressTimerTask: Task<Void, Never>?

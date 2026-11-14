@@ -112,7 +112,7 @@ private struct ArtistPopularTracksSection: View {
         Task {
             await vm.preview.toggle(id: track.id, mainPlayer: player) {
                 await vm.previewURL(track: track, artistName: artistName, server: server,
-                                    client: env.client)
+                                    stream: env.stream)
             }
         }
     }

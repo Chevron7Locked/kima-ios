@@ -52,15 +52,6 @@ final class SSEManagerReconnectTests: XCTestCase {
         var count = 0
     }
 
-    /// Polls until `condition` holds or the deadline passes; the stream task runs on the main
-    /// actor cooperatively, so awaiting here lets it advance.
-    private func waitUntil(_ timeout: TimeInterval = 2, _ condition: () async -> Bool) async {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !(await condition()), Date() < deadline {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-    }
-
     /// A manager wired to the stubs and already streaming: created, backoff injected (nil keeps
     /// the production sleep), started against the stub server, kept alive by `startedManagers`
     /// until `tearDown` cancels it. Callers keep only their handler — the data difference.

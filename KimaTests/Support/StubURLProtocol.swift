@@ -80,6 +80,10 @@ extension PlaybackController {
         let c = PlaybackController(server: KimaServer(baseURL: URL(string: baseURL)!))
         c.engine.activateSession = { _ in }
         c.syncHook = nil
+        // Load paths ask the stream source for playable URLs (ticket 13); wire one to the stub
+        // transport so mint-and-load behavior works as it did through `apiClient`. The client's
+        // host is always stub.test — only the controller's server shapes the stream URLs.
+        c.streamSource = StreamSource(server: c.server, client: .stubbed())
         return c
     }
 }

@@ -24,8 +24,8 @@ extension PlaybackController {
             let (nextIdx, _) = computeNext()
             guard let nextIdx, queue.indices.contains(nextIdx) else { return }
             let track = queue[nextIdx]
-            warmNextStream(client: apiClient, epoch: epoch, logLabel: "track idx=\(nextIdx)") {
-                StreamURL.track(base: $0, trackId: track.id, token: $1)
+            warmNextStream(epoch: epoch, logLabel: "track idx=\(nextIdx)") { source in
+                await source.playableURL(trackId: track.id)
             }
 
         case .audiobook(let session):
@@ -33,8 +33,8 @@ extension PlaybackController {
             guard let currentFile = session.fileByIndex(currentLongFormFileIndex),
                   !session.isLastFile(currentFile),
                   let nextFile = session.nextFile(after: currentFile) else { return }
-            warmNextStream(client: longFormAPIClient, epoch: epoch, logLabel: "book file=\(nextFile.index)") {
-                StreamURL.audiobook(base: $0, bookId: session.bookId, index: nextFile.index, token: $1)
+            warmNextStream(epoch: epoch, logLabel: "book file=\(nextFile.index)") { source in
+                await source.playableURL(bookId: session.bookId, index: nextFile.index)
             }
 
         case .podcastEpisode(let podcastId, let episode, let episodeQueue):
@@ -56,22 +56,21 @@ extension PlaybackController {
                           episodeQueue.indices.contains(idx + 1) else { return }
                     nextEpisode = episodeQueue[idx + 1]
                 }
-                self.warmNextStream(client: self.longFormAPIClient, epoch: epoch, logLabel: "episode \(nextEpisode.id)") {
-                    StreamURL.podcastEpisode(base: $0, podcastId: podcastId, episodeId: nextEpisode.id, token: $1)
+                self.warmNextStream(epoch: epoch, logLabel: "episode \(nextEpisode.id)") { source in
+                    await source.playableURL(podcastId: podcastId, episodeId: nextEpisode.id)
                 }
             }
         }
     }
 
-    /// Gets a stream token, then warms the next stream unless the player moved on (epoch changed) meanwhile.
-    private func warmNextStream(client: KimaAPIClient?, epoch: Int, logLabel: String,
-                                url makeURL: @escaping (KimaServer, String) -> URL?) {
+    /// Asks the stream source for the next stream's playable URL, then warms it unless the player
+    /// moved on (epoch changed) meanwhile.
+    private func warmNextStream(epoch: Int, logLabel: String,
+                                ask: @escaping @MainActor (StreamSource) async -> StreamSource.Answer) {
         Task { @MainActor [weak self] in
-            guard let self else { return }
-            let streamTok = await resolveStreamToken(client)
-            guard self.engine.isCurrentLoad(epoch), let streamTok,
-                  let url = makeURL(self.server, streamTok)
-            else { return }
+            guard let self, let source = self.streamSource else { return }
+            guard case .url(let url) = await ask(source), self.engine.isCurrentLoad(epoch)
+            else { return }   // no answer, or a URL the login can't be blamed for — prefetching is opportunistic
             #if DEBUG
             prefetchLog.info("KIMA_AUDIO prefetch \(logLabel, privacy: .public)")
             #endif

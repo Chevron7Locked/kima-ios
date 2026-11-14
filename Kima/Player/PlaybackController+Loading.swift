@@ -54,14 +54,12 @@ extension PlaybackController {
         goneCheckedTrackId = nil
         let track = queue[currentIndex]
         hydrateCurrentTrackCoverIfNeeded()  // radio/shuffle/vibe tracks arrive without album metadata
-        let client = apiClient
         // Staleness guard: claim at mint (loadEpoch). The claim is minted before the hop, so a second load intent
         // (user next, recovery rebuild, cross-file seek) cancels the in-flight one instead of racing it.
         // Landings and teardowns bump the epoch (monotonic, never zeroed) so a stale claim can never collide.
         let loadClaim = engine.claimLoad()
-        loadStream(claim: loadClaim, client: client, autoplay: autoplay, seekTo: seekTo) { [weak self] token in
-            guard let self else { return nil }
-            return StreamURL.track(base: self.server, trackId: track.id, token: token)
+        loadStream(claim: loadClaim, autoplay: autoplay, seekTo: seekTo) { source in
+            await source.playableURL(trackId: track.id)
         }
         refillStationIfAtTail()
     }

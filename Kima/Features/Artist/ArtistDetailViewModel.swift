@@ -208,8 +208,8 @@ final class ArtistDetailViewModel {
     /// `/api/artists/preview/{artist}/{title}/stream` proxy, which resolves a fresh Deezer URL per
     /// playback. The payload's `track.previewUrl` expires ~27 h after the server fetched it (then it
     /// answers 403), so it is only a fallback when no ticket is available.
-    func previewURL(track: Track, artistName: String, server: KimaServer, client: KimaAPIClient) async -> URL? {
-        let streamToken = await client.streamTicket()
+    func previewURL(track: Track, artistName: String, server: KimaServer, stream: StreamSource) async -> URL? {
+        let streamToken = await stream.ticket()
         if let tok = streamToken {
             return PreviewURL.track(base: server, artistName: artistName, trackTitle: track.title, token: tok)
         }

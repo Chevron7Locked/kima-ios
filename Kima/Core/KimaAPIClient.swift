@@ -33,16 +33,6 @@ actor KimaAPIClient {
     /// this shared Task to guarantee exactly one /auth/refresh round-trip at a time (single-flight).
     private var refreshTask: Task<String, any Error>?
 
-    /// Cached stream ticket, its expiry, and the renewal point (half the TTL after mint), so a stream built from
-    /// this cache always has at least half its lifetime left and never expires mid-song.
-    /// Internal, not private: streamTicket() in the +LongForm extension reads and writes it.
-    var cachedStreamTicket: (ticket: String, expiry: Date, renewsAt: Date)?
-
-    /// In-flight stream-ticket fetch; nil when none is running.
-    /// Mirrors `refreshTask` single-flight pattern: concurrent callers share one Task.
-    /// internal (not private): shared with the +LongForm extension file.
-    var ticketTask: Task<String?, Never>?
-
     /// Both sessions come from `sessions` — the stub adapter in tests reaches every call,
     /// including the long-timeout ones. The ephemeral + trust posture is the factory's to own.
     init(server: KimaServer, credential: KimaCredential? = nil, sessions: any SessionFactory = .production) {

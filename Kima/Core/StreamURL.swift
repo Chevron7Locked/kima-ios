@@ -1,7 +1,7 @@
 import Foundation
 
-/// Builds `?token=` stream URLs for AVPlayer, which cannot send an auth header. The token is
-/// whatever `PlaybackController.resolveStreamToken` returns.
+/// Builds `?token=` stream URLs for AVPlayer, which cannot send an auth header. Pure path/query
+/// shapes; the token comes from `StreamSource`, which answers finished playable URLs (ticket 13).
 enum StreamURL {
 
     /// Track stream URL — hits the server, triggering a server-side Play row (scrobble).
@@ -15,7 +15,7 @@ enum StreamURL {
 
     /// Audiobook file stream URL: `GET {base}/api/audiobooks/{bookId}/stream?trackIndex={index}&token={token}`.
     /// `index` is the 1-based `AudiobookTrack.index`; when 0, `trackIndex` is omitted and the server
-    /// plays the first file. `token` comes from `resolveStreamToken`.
+    /// plays the first file. `token` comes from `StreamSource`.
     static func audiobook(base: KimaServer, bookId: String, index: Int, token: String) -> URL? {
         var query: [String: String] = ["token": token]
         if index > 0 { query["trackIndex"] = "\(index)" }

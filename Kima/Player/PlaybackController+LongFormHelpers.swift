@@ -44,17 +44,15 @@ extension PlaybackController {
 
     // MARK: - Loaders
 
-    /// `prepare` runs before the ticket fetch (see `loadStream`).
+    /// `prepare` runs before the playable-URL ask (see `loadStream`).
     func loadBookPosition(bookTime: Double, session: BookSession, autoplay: Bool,
                           prepare: (@MainActor () async -> Void)? = nil) {
         let (file, fileTime) = session.locate(bookTime: bookTime)
         currentLongFormFileIndex = file.index  // track in-flight file before the async hop
-        let client = longFormAPIClient
         let posClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-        loadStream(claim: posClaim, client: client, autoplay: autoplay,
-                   seekTo: fileTime > 0 ? fileTime : nil, prepare: prepare) { [weak self] token in
-            guard let self else { return nil }
-            return StreamURL.audiobook(base: self.server, bookId: session.bookId, index: file.index, token: token)
+        loadStream(claim: posClaim, autoplay: autoplay,
+                   seekTo: fileTime > 0 ? fileTime : nil, prepare: prepare) { source in
+            await source.playableURL(bookId: session.bookId, index: file.index)
         }
     }
 
@@ -62,15 +60,14 @@ extension PlaybackController {
         podcastId: String, episode: Episode, seekTo: Double, autoplay: Bool,
         prepare: (@MainActor () async -> Void)? = nil
     ) {
-        let client = longFormAPIClient
+        let sampleItunesId = podcastSampleItunesId  // read before the async hop: a sample streams its snippet
         let epClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-        loadStream(claim: epClaim, client: client, autoplay: autoplay,
-                   seekTo: seekTo > 0 ? seekTo : nil, prepare: prepare) { [weak self] token in
-            guard let self else { return nil }
-            if let itunesId = self.podcastSampleItunesId {
-                return StreamURL.podcastSnippet(base: self.server, itunesId: itunesId, token: token)
+        loadStream(claim: epClaim, autoplay: autoplay,
+                   seekTo: seekTo > 0 ? seekTo : nil, prepare: prepare) { source in
+            if let sampleItunesId {
+                return await source.playableURL(sampleItunesId: sampleItunesId)
             }
-            return StreamURL.podcastEpisode(base: self.server, podcastId: podcastId, episodeId: episode.id, token: token)
+            return await source.playableURL(podcastId: podcastId, episodeId: episode.id)
         }
     }
 

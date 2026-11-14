@@ -20,70 +20,6 @@ extension KimaAPIClient {
         }
     }
 
-    // MARK: - Stream ticket (short-lived scoped token for ?token= stream URLs)
-
-    /// Short-lived stream ticket for `?token=` URLs, cached until half its lifetime. On a 404 (server without the
-    /// ticket endpoint) returns the login JWT, the only stream credential that server accepts; on any other
-    /// failure returns nil, and callers must not substitute the login JWT. Single-flight, like `refreshTask`.
-    /// Seconds until the cached ticket reaches its renewal point; nil when nothing is cached.
-    /// Exposed so the warm-keeper can sleep exactly as long as a minted ticket stays valid.
-    var ticketRenewalDelay: TimeInterval? {
-        guard let cached = cachedStreamTicket else { return nil }
-        return max(0, cached.renewsAt.timeIntervalSinceNow)
-    }
-
-    func streamTicket() async -> String? {
-        struct StreamTicketResponse: Decodable {
-            let ticket: String
-            let expiresIn: Int
-        }
-
-        // Cache hit: not yet at the proactive renewal point (refresh at TTL/2 rather than
-        // only in the last 60 s, so a stream started 3h59m into a cached ticket can't be
-        // scheduled to die mid-song when the server enforces expiry on the live connection).
-        if let cached = cachedStreamTicket, Date.now < cached.renewsAt {
-            return cached.ticket
-        }
-        // Single-flight: share an already-in-flight Task (mirrors `refreshTask` pattern).
-        if let existing = ticketTask {
-            return await existing.value
-        }
-        // Task { } inside an actor inherits actor isolation (Swift 6). Reads/writes to
-        // actor-isolated state (cachedStreamTicket, post) is safe.
-        let task = Task<String?, Never> {
-            do {
-                // `post` (internal helper, empty body) carries the credential header and the
-                // 401→/auth/refresh→retry, same as every other authed call.
-                let response: StreamTicketResponse = try await post("/auth/stream-ticket", body: [:], authed: true)
-                let expiry = Date.now.addingTimeInterval(TimeInterval(response.expiresIn))
-                // Proactive renewal at TTL/2 (never later than the absolute 60 s pre-expiry
-                // deadline for pathological tiny TTLs).
-                let renewsAt = min(
-                    Date.now.addingTimeInterval(TimeInterval(response.expiresIn) / 2),
-                    expiry.addingTimeInterval(-60)
-                )
-                self.cachedStreamTicket = (ticket: response.ticket, expiry: expiry, renewsAt: renewsAt)
-                return response.ticket
-            } catch APIError.http(let status, _) where status == 404 {
-                // Server predates stream tickets: the login JWT is the only stream credential it accepts.
-                return KeychainStore.credential(KeychainStore.accessToken, for: server)
-            } catch {
-                return nil   // never fall back to the login JWT: it would sit in proxy logs as an all-scope credential
-            }
-        }
-        ticketTask = task
-        let result = await task.value
-        ticketTask = nil
-        return result
-    }
-
-    /// Clears the cached stream ticket so the next `streamTicket()` call fetches a fresh one.
-    /// Called before rebuilding a stream after a 401 — a 4-hour ticket expiring mid-session
-    /// is the common re-auth trigger, so the rebuild must not reuse the stale ticket.
-    func invalidateStreamTicket() {
-        cachedStreamTicket = nil
-    }
-
     // MARK: - Token refresh
 
     /// POST /api/auth/refresh — exchange the stored refresh token for a fresh access token.
@@ -112,7 +48,8 @@ extension KimaAPIClient {
         // Update the in-memory credential so subsequent requests on this client instance
         // immediately use the new token without re-reading the Keychain.
         setCredential(.jwt(r.token))
-        // Notify AppEnvironment to drop the cached stream ticket.
+        // Notify the session's StreamSource (and any other holder) so cached stream tickets,
+        // which were minted against the old token, are dropped.
         NotificationCenter.default.post(name: .kimaAccessTokenRotated, object: nil)
         return r.token
     }

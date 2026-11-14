@@ -64,7 +64,7 @@ struct AlbumTrackListView: View {
             if needsPreview {
                 Task {
                     await vm.preview.toggle(id: track.id, mainPlayer: player) {
-                        let tok = await env.client.streamTicket()
+                        let tok = await env.stream.ticket()
                         return previewURL(for: track, token: tok)
                     }
                 }

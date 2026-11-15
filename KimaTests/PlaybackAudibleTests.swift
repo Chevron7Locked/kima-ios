@@ -249,6 +249,31 @@ final class PlaybackAudibleTests: XCTestCase {
         }
     }
 
+    /// The optical-centering decision both discs honor (ticket 19), measured from SF Symbol
+    /// semibold ink centroids vs layout-box center: play.fill's mass sits ~5.6% of its box left
+    /// of center, arrow.clockwise ~3.0% — about half — and pause is balanced. One rule, weighted
+    /// per glyph; each control multiplies by its own scale factor instead of hand-comparing
+    /// glyph state in a view body (ADR 0001).
+    func testTransportNudgeWeightCentersEachGlyph() throws {
+        let c = controller()
+        c.queue = [try Track.fixture("a")]
+        c.currentIndex = 0
+
+        c.engine.isPlaying = true
+        XCTAssertEqual(c.transportDisplayState.opticalNudgeWeight, 0)      // pause.fill is symmetric
+        c.engine.isPlaying = false
+        c.engine.wantsPlayback = true
+        c.engine.status = .loading
+        XCTAssertEqual(c.transportDisplayState.opticalNudgeWeight, 0)      // spinner: nothing to center
+        c.engine.wantsPlayback = false
+        c.engine.status = .error
+        XCTAssertEqual(c.transportDisplayState.opticalNudgeWeight, 0.5)    // arrow.clockwise is half-offset
+        for status in [EngineStatus.blocked, .paused, .idle] {             // the play-glyph family
+            c.engine.status = status
+            XCTAssertEqual(c.transportDisplayState.opticalNudgeWeight, 1)  // play.fill is fully offset
+        }
+    }
+
     // MARK: - Podcast: audible episode + session ownership (build-20's shape)
 
     /// The detail page's two reads: rows light the audibly playing episode only, and the hero

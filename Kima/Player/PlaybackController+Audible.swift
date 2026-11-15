@@ -42,9 +42,20 @@ extension PlaybackController {
             }
         }
 
-        /// The play triangle, wherever it renders — the glyph that needs a rightward nudge for
-        /// optical centering (the symbol name itself must not leak into view bodies).
-        var showsPlayGlyph: Bool { systemImage == "play.fill" }
+        /// How far this state's glyph sits off true center in its layout box — the one nudge
+        /// answer both transport controls honor (ADR 0001), weighted per glyph and multiplied by
+        /// each control's own scale factor. Measured from SF Symbol semibold ink centroids: the
+        /// play triangle's mass is ~5.6% of its box width left of center, the retry arrow ~3.0% —
+        /// about half — pause is symmetric, and a fetch renders a spinner, not a glyph. Keyed off
+        /// `systemImage` so a state that reuses a glyph inherits its centering; view bodies must
+        /// not hand-compare glyphs for an offset.
+        var opticalNudgeWeight: Double {
+            switch systemImage {
+            case "play.fill":       return 1
+            case "arrow.clockwise": return 0.5
+            default:                return 0   // symmetric pause; spinner has no glyph
+            }
+        }
 
         /// VoiceOver value while fetching: the label stays honest, the state reads as loading.
         var accessibilityValue: String { self == .waiting ? "loading" : "" }

@@ -49,7 +49,7 @@ struct NowPlayingPlayButton: View {
             Image(systemName: image)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(fg)
-                .offset(x: displayValue.showsPlayGlyph ? 1.5 : 0)  // optical centering for the play triangle
+                .offset(x: displayValue.opticalNudgeWeight * 1.5)  // optical nudge × this disc's 16pt glyph scale
         } else {
             ProgressView().controlSize(.small).tint(fg)
         }

@@ -145,7 +145,7 @@ struct PlayerTransportControls: View {
                     .contentTransition(.symbolEffect(.replace))
                     .font(.system(size: 28, weight: .semibold))
                     .foregroundStyle(KimaColor.textPrimary)
-                    .offset(x: displayValue == .playing ? 0 : 2)
+                    .offset(x: displayValue.opticalNudgeWeight * 2)  // optical nudge × this disc's 28pt glyph scale
             } else {
                 ProgressView().controlSize(.large).tint(KimaColor.textPrimary)
             }

@@ -53,5 +53,20 @@ grep -E '\*\* TEST (SUCCEEDED|FAILED) \*\*|Executed [0-9]+ tests?' "$LOG" | tail
 # The summary above buries them when a class fails en masse — print them whole (capped)
 # so a red needs no xcresulttool dig.
 grep -E 'error:' "$LOG" | head -40 >&2
+# Non-test reds read like test failures; name them when the log shows them.
+if grep -qE "failed preflight checks|Simulator device failed to launch" "$LOG"; then
+    echo "hint: simulator refused the launch (often 'Busy' after an earlier hung run): xcrun simctl shutdown $UDID 2>/dev/null; xcrun simctl bootstatus $UDID -b, then rerun" >&2
+fi
+if grep -q "Restarting after unexpected exit, crash, or test timeout" "$LOG"; then
+    echo "hint: the runner restarted mid-run — classes before that marker may not have rerun; the blamed test hung or crashed rather than failed" >&2
+fi
+# A test that started and never printed a result is the hang itself (key on the quoted
+# identifier: the class-space-method name means $3 alone is shared across a whole class).
+hung=$(awk '/Test Case \047/ { id = $0; sub(/^Test Case \047/, "", id); sub(/\047.*$/, "", id)
+     if ($0 ~ /started\./) t[id] = 1; else delete t[id] } END { for (n in t) print "  " n }' "$LOG")
+if [ -n "$hung" ]; then
+    echo "hint: no result ever printed for these — an unbounded wait hung the runner (polling waits ride waitUntil, KimaTests/Support):" >&2
+    printf '%s\n' "$hung" >&2
+fi
 [ "$status" -ne 0 ] && exit "$status"
 exit 1

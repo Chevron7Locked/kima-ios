@@ -22,7 +22,7 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCAN_DIRS = ["Kima", "KimaTests"]
+SCAN_DIRS = ["Kima", "KimaTests", "KimaUITests"]
 MIN_LINES = 8        # normalized code lines shared verbatim; below this, boilerplate dominates
 BOILERPLATE_CAP = 60  # a line in more files than this is Swift furniture, not duplication
 MAX_OFFSETS = 4000   # safety cap on diagonals walked per pair

@@ -16,7 +16,8 @@ final class VibeCancellationTests: XCTestCase {
         let c = controller()
         c.queueOrigin = .songPath
         let asker = Task { await c.confirmVibeReplace(with: .blend) }
-        while c.vibeReplacePrompt == nil { await Task.yield() }
+        await waitUntil { c.vibeReplacePrompt != nil }
+        XCTAssertNotNil(c.vibeReplacePrompt, "the replace question never opened")
         asker.cancel()
         let answer = await asker.value
         XCTAssertFalse(answer)
@@ -43,9 +44,10 @@ final class VibeCancellationTests: XCTestCase {
         let vm = VibeMapViewModel()
         var answer: Bool?
         vm.launch { answer = await c.confirmVibeReplace(with: .playSimilar) }
-        while c.vibeReplacePrompt == nil { await Task.yield() }
+        await waitUntil { c.vibeReplacePrompt != nil }
+        XCTAssertNotNil(c.vibeReplacePrompt, "the replace question never opened")
         vm.cancelOperations()
-        while answer == nil { await Task.yield() }
+        await waitUntil { answer != nil }
         XCTAssertEqual(answer, false)
         XCTAssertNil(c.vibeReplacePrompt)
     }
@@ -131,7 +133,8 @@ final class VibeCancellationTests: XCTestCase {
         let vm = VibeMapViewModel()
         vm.panel = .blend
         let run = Task { await vm.runBlend(picks: self.picks(), client: .stubbed()) }
-        while StubURLProtocol.requests.isEmpty { await Task.yield() }
+        await waitUntil { !StubURLProtocol.requests.isEmpty }
+        XCTAssertFalse(StubURLProtocol.requests.isEmpty, "the blend request never fired")
         vm.panel = nil
         vm.panel = .blend
         await run.value
@@ -164,7 +167,8 @@ final class VibeCancellationTests: XCTestCase {
         }
         let sync = LibrarySyncModel(pollInterval: .milliseconds(10))
         sync.start(client: .stubbed())
-        while StubURLProtocol.requests.count < 4 { await Task.yield() }
+        await waitUntil { StubURLProtocol.requests.count >= 4 }
+        XCTAssertTrue(StubURLProtocol.requests.count >= 4, "scan polling never started")
         sync.cancel()
         try await Task.sleep(for: .milliseconds(100))
         let settled = StubURLProtocol.requests.count
@@ -181,7 +185,8 @@ final class VibeCancellationTests: XCTestCase {
         var sync: LibrarySyncModel? = LibrarySyncModel(pollInterval: .milliseconds(10))
         weak let weakSync = sync
         sync?.start(client: .stubbed())
-        while StubURLProtocol.requests.count < 3 { await Task.yield() }
+        await waitUntil { StubURLProtocol.requests.count >= 3 }
+        XCTAssertTrue(StubURLProtocol.requests.count >= 3, "scan polling never started")
         sync = nil
         try await Task.sleep(for: .milliseconds(100))
         XCTAssertNil(weakSync)

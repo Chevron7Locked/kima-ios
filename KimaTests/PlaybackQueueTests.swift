@@ -97,7 +97,7 @@ final class PlaybackQueueTests: XCTestCase {
         XCTAssertTrue(free)
         c.queueOrigin = .songPath
         let answer = Task { await c.confirmVibeReplace(with: .playSimilar) }
-        while c.vibeReplacePrompt == nil { await Task.yield() }
+        await waitUntil { c.vibeReplacePrompt != nil }   // the next assert is the fact this waited for
         XCTAssertEqual(c.vibeReplacePrompt?.question, "replace the song path with similar tracks?")
         c.resolveVibeReplace(true)
         let confirmed = await answer.value

@@ -70,6 +70,51 @@ final class StreamSourceTests: KeychainLoginTestCase {
         XCTAssertEqual(ticketMints, 1, "an ask that arrives while a mint is in flight joins it, like the refresh task before it")
     }
 
+    // MARK: - Preview clip answers (ticket 14)
+
+    /// The page preview rows ask this source too (album, browse-playlist, artist): the server's
+    /// preview proxy path carrying a ticket — no page mints or assembles any of it.
+    func testPreviewAnswerCarriesTheTicketOnTheProxyPath() async {
+        StubURLProtocol.handler = { _ in (200, Data(#"{"ticket":"st-9","expiresIn":3600}"#.utf8)) }
+        let source = StreamSource(server: server, client: .stubbed(credential: .jwt(jwt)))
+        guard case .url(let url) = await source.previewURL(artistName: "ABBA", trackTitle: "Dancing Queen") else {
+            return XCTFail("expected a preview URL from a ticketed server")
+        }
+        XCTAssertEqual(url.absoluteString,
+                       "https://stub.test/api/artists/preview/ABBA/Dancing%20Queen/stream?token=st-9",
+                       "the title must ride percent-encoded in the path, with the ticket as the only query item")
+        XCTAssertFalse(url.absoluteString.contains(jwt),
+                       "the login token never rides a preview URL either")
+    }
+
+    func testPreviewAndPlayAsksShareOneCachedMint() async {
+        StubURLProtocol.handler = { _ in (200, Data(#"{"ticket":"st-9","expiresIn":3600}"#.utf8)) }
+        let source = StreamSource(server: server, client: .stubbed(credential: .jwt(jwt)))
+        let clip = await source.previewURL(artistName: "ABBA", trackTitle: "Gimme").url
+        XCTAssertNotNil(clip, "the preview answer should have landed a URL")
+        _ = await source.playableURL(trackId: "trk-1")
+        XCTAssertEqual(ticketMints, 1,
+                       "a preview tap rides the keeper's warm ticket — the head start pages keep for free")
+    }
+
+    func testPreviewAnswerOnATicketlessServerRidesTheLoginToken() async {
+        storeLogin(jwt, for: server)
+        StubURLProtocol.handler = { _ in (404, Data()) }
+        let source = StreamSource(server: server, client: .stubbed(credential: .jwt(jwt)))
+        guard case .url(let url) = await source.previewURL(artistName: "ABBA", trackTitle: "Gimme") else {
+            return XCTFail("a ticketless server still answers previews with its login token")
+        }
+        XCTAssertEqual(url.query, "token=\(jwt)")
+    }
+
+    /// The pages' fallback contract: a mint that fails answers `noTicket` — the page then offers
+    /// its payload's raw link (or nothing), and no all-scope token rides the clip URL.
+    func testFailedPreviewMintAnswersNoTicketForThePagesToFallBackOn() async {
+        StubURLProtocol.handler = { _ in (500, Data()) }
+        let source = StreamSource(server: server, client: .stubbed(credential: .jwt(jwt)))
+        assertNoAnswer(await source.previewURL(artistName: "ABBA", trackTitle: "Gimme"))
+    }
+
     // MARK: - The established fallback, and its limits
 
     /// A server without the ticket endpoint (404): the login JWT is the only stream credential it

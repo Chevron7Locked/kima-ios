@@ -153,11 +153,9 @@ struct BrowsePlaylistDetailView: View {
                             {
                                 Task {
                                     await previewer.toggle(id: track.id, mainPlayer: player) {
-                                        let tok = await env.stream.ticket()
-                                        return PreviewURL.track(
-                                            base: env.server, artistName: track.artist,
-                                            trackTitle: track.title, token: tok
-                                        ) ?? URL(string: track.previewUrl ?? "")
+                                        await env.stream.previewURL(artistName: track.artist,
+                                                                    trackTitle: track.title)
+                                            .url(orRawLink: track.previewUrl)
                                     }
                                 }
                             }

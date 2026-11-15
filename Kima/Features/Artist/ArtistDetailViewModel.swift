@@ -204,19 +204,13 @@ final class ArtistDetailViewModel {
 
     // MARK: - Preview playback
 
-    /// Address of the 30-second clip for an unowned popular track: the server's
-    /// `/api/artists/preview/{artist}/{title}/stream` proxy, which resolves a fresh Deezer URL per
-    /// playback. The payload's `track.previewUrl` expires ~27 h after the server fetched it (then it
-    /// answers 403), so it is only a fallback when no ticket is available.
-    func previewURL(track: Track, artistName: String, server: KimaServer, stream: StreamSource) async -> URL? {
-        let streamToken = await stream.ticket()
-        if let tok = streamToken {
-            return PreviewURL.track(base: server, artistName: artistName, trackTitle: track.title, token: tok)
-        }
-        if let raw = track.previewUrl, !raw.isEmpty, let u = URL(string: raw) {
-            return u
-        }
-        return nil
+    /// Address of the 30-second clip for an unowned popular track: the session's stream source
+    /// answers the server's `/api/artists/preview/{artist}/{title}/stream` proxy URL, which
+    /// resolves a fresh Deezer link per playback. The payload's `track.previewUrl` is only the
+    /// no-answer fallback (one rule, in `Answer.url(orRawLink:)`).
+    func previewURL(track: Track, artistName: String, stream: StreamSource) async -> URL? {
+        await stream.previewURL(artistName: artistName, trackTitle: track.title)
+            .url(orRawLink: track.previewUrl)
     }
 
     // MARK: - Downloads

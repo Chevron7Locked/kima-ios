@@ -8,7 +8,6 @@ struct ArtistSectionsView: View {
     let albums: [Album]
     let onTapAlbum: (String) -> Void
     let onTapArtist: (String) -> Void
-    let server: KimaServer
 
     private var ownedAlbums: [Album] { vm.ownedAlbums(from: albums) }
     private var availableAlbums: [Album] { vm.availableAlbums(from: albums) }
@@ -26,8 +25,7 @@ struct ArtistSectionsView: View {
                     tracks: Array(topTracks.prefix(10)),
                     allTracks: topTracks,
                     artistName: artist.name,
-                    vm: vm,
-                    server: server
+                    vm: vm
                 )
             }
 
@@ -61,7 +59,6 @@ private struct ArtistPopularTracksSection: View {
     let allTracks: [Track]
     let artistName: String
     let vm: ArtistDetailViewModel
-    let server: KimaServer
 
     @Environment(PlaybackController.self) private var player
     @Environment(AppEnvironment.self) private var env
@@ -111,8 +108,7 @@ private struct ArtistPopularTracksSection: View {
     private func togglePreview(_ track: Track) {
         Task {
             await vm.preview.toggle(id: track.id, mainPlayer: player) {
-                await vm.previewURL(track: track, artistName: artistName, server: server,
-                                    stream: env.stream)
+                await vm.previewURL(track: track, artistName: artistName, stream: env.stream)
             }
         }
     }

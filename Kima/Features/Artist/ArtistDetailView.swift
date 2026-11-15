@@ -101,8 +101,7 @@ private struct ArtistDetailContent: View {
                     vm: vm,
                     albums: albums,
                     onTapAlbum: { path.append(.album(id: $0)) },
-                    onTapArtist: { id in path.append(.artist(id: id)) },
-                    server: env.server
+                    onTapArtist: { id in path.append(.artist(id: id)) }
                 )
             }
             .kimaReadableWidth()

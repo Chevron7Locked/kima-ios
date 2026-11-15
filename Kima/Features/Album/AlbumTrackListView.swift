@@ -64,8 +64,9 @@ struct AlbumTrackListView: View {
             if needsPreview {
                 Task {
                     await vm.preview.toggle(id: track.id, mainPlayer: player) {
-                        let tok = await env.stream.ticket()
-                        return previewURL(for: track, token: tok)
+                        // A missing/unowned row has no raw link to fall back on: no answer, no clip.
+                        await env.stream.previewURL(artistName: album.artist?.name ?? "",
+                                                    trackTitle: track.effectiveTitle).url
                     }
                 }
             } else {
@@ -89,15 +90,6 @@ struct AlbumTrackListView: View {
                 }
             }
         }
-    }
-
-    private func previewURL(for track: Track, token: String?) -> URL? {
-        PreviewURL.track(
-            base: env.server,
-            artistName: album.artist?.name ?? "",
-            trackTitle: track.effectiveTitle,
-            token: token
-        )
     }
 }
 

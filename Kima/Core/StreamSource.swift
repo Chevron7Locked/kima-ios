@@ -4,7 +4,8 @@ import Foundation
 // The one module that answers playable URLs (ticket 13): minting the short-lived stream ticket,
 // caching it until near its half-life, keeping soon-to-play tracks warm, and dropping cached
 // tickets when credentials rotate all live here, and the renewal timing exists in exactly this
-// file. Player paths ask for a playable URL — they never see a ticket or assemble a stream URL.
+// file. Player paths and page preview rows ask for a playable URL — nobody outside this module
+// ever sees a ticket or assembles a stream URL (ticket 14).
 
 /// The stream source's clock: wall time and real sleeps in production; tests inject virtual time
 /// so the renewal schedule is asserted, not waited out (same posture as `SSEManager.backoffDelay`).
@@ -78,6 +79,14 @@ final class StreamSource {
     /// A not-followed show's first episode snippet, streamed through the server and stored nowhere.
     func playableURL(sampleItunesId itunesId: String) async -> Answer {
         await answer { StreamURL.podcastSnippet(base: $0, itunesId: itunesId, token: $1) }
+    }
+
+    /// The 30-second preview clip of a missing/unowned track, via the server's on-the-fly preview
+    /// proxy. Page rows (album, browse-playlist, artist) ask this — like every answer here it
+    /// rides a stream ticket when one can be minted; `.noTicket` is the page's cue to fall back
+    /// to its payload's raw link or offer nothing.
+    func previewURL(artistName: String, trackTitle: String) async -> Answer {
+        await answer { PreviewURL.track(base: $0, artistName: artistName, trackTitle: trackTitle, token: $1) }
     }
 
     /// The one shape every answer shares: hold a ticket, then build. Callers pass ids, never see
@@ -167,12 +176,12 @@ final class StreamSource {
 
     // MARK: - Ticket mint
 
-    /// The raw short-lived stream ticket. Playback paths must prefer the `playableURL` answers —
-    /// this exists only for the page preview mints (the artist/browse preview clips, ticket 14's
-    /// territory) until they move onto the answers too. On a 404 (server without the ticket
-    /// endpoint) returns the login JWT, the only stream credential that server accepts; on any
-    /// other failure returns nil, and callers must not substitute the login JWT.
-    func ticket() async -> String? {
+    /// The raw short-lived stream ticket, minted or taken from the cache. Private since ticket 14:
+    /// every answer above builds on it, and nothing outside this module sees a ticket or assembles
+    /// a `?token=` URL. On a 404 (server without the ticket endpoint) returns the login JWT, the
+    /// only stream credential that server accepts; on any other failure returns nil, and callers
+    /// must not substitute the login JWT.
+    private func ticket() async -> String? {
         struct StreamTicketResponse: Decodable {
             let ticket: String
             let expiresIn: Int
@@ -206,5 +215,25 @@ final class StreamSource {
         let result = await task.value
         ticketTask = nil
         return result
+    }
+}
+
+extension StreamSource.Answer {
+    /// The playable URL, or nil — for callers with nothing to offer on failure (album rows).
+    /// Player paths switch on the cases: only they care whether a dead session is worth an
+    /// /auth/me probe.
+    var url: URL? {
+        if case .url(let url) = self { return url }
+        return nil
+    }
+
+    /// The answer's URL when there is one, else the payload's raw preview link — the shared
+    /// no-answer fallback of the browse-playlist and artist rows (the raw Deezer link expires
+    /// ~27 h after the server fetched it, so it never wins while a ticket can be minted). An
+    /// empty or unparseable raw link answers nothing.
+    func url(orRawLink raw: String?) -> URL? {
+        if case .url(let url) = self { return url }
+        guard let raw, !raw.isEmpty else { return nil }
+        return URL(string: raw)
     }
 }

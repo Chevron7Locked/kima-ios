@@ -9,18 +9,9 @@ final class DevicePairingUITests: XCTestCase {
     override func setUp() { continueAfterFailure = false }
     override func tearDown() { app.terminate() }
 
-    private func launchSignedOut() {
-        app.launch()
-        // A simulator that remembers an unreachable server lands on the can't-reach gate first; this leaves
-        // it for the connect screen without touching any stored login.
-        let change = app.buttons["change server address"]
-        if change.waitForExistence(timeout: 20) { change.tap() }
-        XCTAssertTrue(app.buttons["scan qr code"].waitForExistence(timeout: 30), "connect screen never showed")
-    }
-
     @MainActor
     func testLinkShowsTheHostAndAskFirst() {
-        launchSignedOut()
+        launchIntoConnectScreen(app)
         savePairingShot("connect-screen")
         app.open(URL(string: ok)!)
         XCTAssertTrue(app.buttons["link device"].waitForExistence(timeout: 20))
@@ -33,7 +24,7 @@ final class DevicePairingUITests: XCTestCase {
 
     @MainActor
     func testLoopbackLinkOffersNoLinkButton() {
-        launchSignedOut()
+        launchIntoConnectScreen(app)
         app.open(URL(string: "kima://link?code=ABC234&server=http%3A%2F%2Flocalhost%3A3030")!)
         XCTAssertTrue(text(app, contains: "this code points at this computer").waitForExistence(timeout: 20))
         XCTAssertFalse(app.buttons["link device"].exists)
@@ -43,7 +34,7 @@ final class DevicePairingUITests: XCTestCase {
 
     @MainActor
     func testMalformedLinkShowsAnError() {
-        launchSignedOut()
+        launchIntoConnectScreen(app)
         app.open(URL(string: "kima://link?code=ABC234")!)
         XCTAssertTrue(text(app, contains: "that isn't a valid kima link.").waitForExistence(timeout: 20))
         XCTAssertFalse(app.buttons["link device"].exists)
@@ -52,7 +43,7 @@ final class DevicePairingUITests: XCTestCase {
 
     @MainActor
     func testScanButtonOpensTheSheetAndSaysWhenTheDeviceCannotScan() {
-        launchSignedOut()
+        launchIntoConnectScreen(app)
         app.buttons["scan qr code"].tap()
         XCTAssertTrue(text(app, contains: "this device can't scan codes. type the code instead.").waitForExistence(timeout: 15))
         XCTAssertTrue(text(app, contains: "on the kima website, open settings → link a device.").exists)

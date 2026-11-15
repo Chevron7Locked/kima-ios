@@ -8,12 +8,15 @@ import XCTest
 /// own suites riding the injected factory.
 final class SessionFactoryTests: XCTestCase {
 
-    /// The headline ruling: a session from the production adapter carries the TOFU delegate.
-    /// Before the factory, this was true only because each consumer remembered to attach it.
+    /// The headline ruling: a session from the production adapter carries the certificate story's
+    /// delegate, wired through the one process-wide ServerTrust module. Before the factory, this was
+    /// true only because each consumer remembered to attach it.
     func testProductionAdapterAttachesTheTrustDelegate() {
         let session = ProductionSessionFactory().makeSession()
-        XCTAssertTrue(session.delegate === ServerTrustCoordinator.shared,
-                      "every handed-out session must run the certificate story")
+        guard let delegate = session.delegate as? ServerTrustDelegate else {
+            return XCTFail("every handed-out session must run the certificate story")
+        }
+        XCTAssertTrue(delegate.trust === ServerTrust.shared, "and through the one module every session shares")
     }
 
     /// The privacy posture every consumer shared by hand before the factory: ephemeral, so
@@ -47,8 +50,10 @@ final class SessionFactoryTests: XCTestCase {
     /// suites riding it exercise the certificate layer they ship behind instead of a bare session.
     func testStubAdapterKeepsTheTrustDelegate() {
         let session = StubSessionFactory().makeSession()
-        XCTAssertTrue(session.delegate === ServerTrustCoordinator.shared,
-                      "the stub must run the same trust posture as production")
+        guard let delegate = session.delegate as? ServerTrustDelegate else {
+            return XCTFail("the stub must run the same trust posture as production")
+        }
+        XCTAssertTrue(delegate.trust === ServerTrust.shared, "on the same module production answers through")
     }
 
     /// And it answers through the stub: canned responses on the shared posture.

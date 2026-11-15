@@ -11,7 +11,7 @@ final class ServerTrustDecisionTests: XCTestCase {
         for status in [errSecInteractionNotAllowed, errSecMissingEntitlement, errSecDecode, errSecNotAvailable] {
             for hostMatches in [true, false] {
                 XCTAssertEqual(
-                    ServerTrustCoordinator.decide(stored: .failed(status), presented: pin, hostMatches: hostMatches),
+                    ServerTrust.decide(stored: .failed(status), presented: pin, hostMatches: hostMatches),
                     .refuse, "status \(status), hostMatches \(hostMatches)"
                 )
             }
@@ -19,17 +19,17 @@ final class ServerTrustDecisionTests: XCTestCase {
     }
 
     func testNothingStoredPinsOnlyWhenTheCertificateNamesTheHost() {
-        XCTAssertEqual(ServerTrustCoordinator.decide(stored: .absent, presented: pin, hostMatches: true), .pinFirstUse)
-        XCTAssertEqual(ServerTrustCoordinator.decide(stored: .absent, presented: pin, hostMatches: false), .refuse)
+        XCTAssertEqual(ServerTrust.decide(stored: .absent, presented: pin, hostMatches: true), .pinFirstUse)
+        XCTAssertEqual(ServerTrust.decide(stored: .absent, presented: pin, hostMatches: false), .refuse)
     }
 
     func testStoredPinAcceptsOnlyTheSameKeyAndName() {
-        XCTAssertEqual(ServerTrustCoordinator.decide(stored: .found(pin), presented: pin, hostMatches: true), .accept)
-        XCTAssertEqual(ServerTrustCoordinator.decide(stored: .found(pin), presented: "bb22", hostMatches: true),
+        XCTAssertEqual(ServerTrust.decide(stored: .found(pin), presented: pin, hostMatches: true), .accept)
+        XCTAssertEqual(ServerTrust.decide(stored: .found(pin), presented: "bb22", hostMatches: true),
                        .reportChange(keyChanged: true))
-        XCTAssertEqual(ServerTrustCoordinator.decide(stored: .found(pin), presented: "bb22", hostMatches: false),
+        XCTAssertEqual(ServerTrust.decide(stored: .found(pin), presented: "bb22", hostMatches: false),
                        .reportChange(keyChanged: true))
-        XCTAssertEqual(ServerTrustCoordinator.decide(stored: .found(pin), presented: pin, hostMatches: false),
+        XCTAssertEqual(ServerTrust.decide(stored: .found(pin), presented: pin, hostMatches: false),
                        .reportChange(keyChanged: false))
     }
 

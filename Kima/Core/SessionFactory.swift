@@ -37,7 +37,7 @@ extension SessionFactory {
         let config = URLSessionConfiguration.ephemeral
         needs.apply(to: config)
         if let protocolClasses { config.protocolClasses = protocolClasses }
-        return URLSession(configuration: config, delegate: ServerTrustCoordinator.shared, delegateQueue: nil)
+        return URLSession(configuration: config, delegate: ServerTrust.shared.delegate, delegateQueue: nil)
     }
 }
 

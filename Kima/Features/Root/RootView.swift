@@ -8,6 +8,9 @@ struct RootView: View {
     @State private var appEnv: AppEnvironment?
     @State private var pairing: PresentedPairing?
     private let pairingRouter = DevicePairingRouter.shared
+    /// The certificate-trust module; its reported-change state is injected once here so every
+    /// surface — shell, connect flow, pairing sheet alike — binds the same observable.
+    private let trust = ServerTrust.shared
 
     /// The link-a-device request being shown. A new id each time so a second scan reopens the sheet.
     private struct PresentedPairing: Identifiable {
@@ -60,6 +63,17 @@ struct RootView: View {
                 RootFlowView(onAuthenticated: {})
             }
         }
+        // Screenshot hook: -kima-fake-cert-changed <host>[,<host>…] raises the alerts without a
+        // real certificate. Lives here (one instance) because alert copies exist per surface.
+        // The delay lets UI tests get whatever surface they want up first — the sheet-over-alert
+        // case needs the pairing sheet presenting before the report lands, not racing it.
+        .task {
+            guard let hosts = DebugDeepLink.launchArgValue("-kima-fake-cert-changed") else { return }
+            try? await Task.sleep(for: .seconds(3))
+            for host in hosts.split(separator: ",") {
+                trust.changes.report(host: String(host), keyChanged: true)
+            }
+        }
         #endif
         .preferredColorScheme(.dark)
         // Link a device (kima://link or "scan qr code"): here because it needs the session and works from any screen.
@@ -69,7 +83,11 @@ struct RootView: View {
         .onChange(of: pairingRouter.pending) { _, _ in presentPairingRequest() }
         .onAppear { presentPairingRequest() }
         // Over every phase: a changed certificate first shows up on sign-in or the can't-reach gate.
-        .modifier(CertificateChangedAlert(isActive: pairing == nil))
+        .modifier(CertificateChangedAlert())
+        // The one certificate-alert state, injected outermost so it is an *ancestor* of every
+        // attachment above — environment flows down only, and CertificateChangedAlert reads it with
+        // @Environment, as does DevicePairingSheet's copy through the sheet presentation.
+        .environment(trust.changes)
         // Cap Dynamic Type at accessibility2 to protect dense layouts — the mini-player chrome,
         // Vibe Map node labels, and large display headers at accessibility3–5 would overflow
         // their containers. accessibility2 is still substantially larger than xxxLarge and covers

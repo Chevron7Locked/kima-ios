@@ -23,8 +23,9 @@ struct DevicePairingSheet: View {
         }
         .preferredColorScheme(.dark)
         .onDisappear { vm.cancel() }
-        // The alert on RootView cannot show over this sheet, so the sheet carries its own.
-        .modifier(CertificateChangedAlert())
+        // The alert on RootView cannot show over this sheet, so the sheet carries its own copy —
+        // marked as the one that presents while this sheet lives (the state leases it).
+        .modifier(CertificateChangedAlert(aboveSheet: true))
     }
 
     @ViewBuilder private var content: some View {

@@ -1,8 +1,16 @@
 import Foundation
+import XCTest
 @testable import Kima
 
 /// Canned HTTP responses for unit tests, installed by `StubSessionFactory`. Set `handler` per
 /// test; every request (and its body) is recorded before the handler runs.
+///
+/// Serialization is part of the contract: URLSession calls `startLoading` inline on one serial
+/// queue per session, so requests through ONE client run one at a time — a `Thread.sleep` in a
+/// handler blocks its sibling requests on that client. Separate `.stubbed()` clients are separate
+/// sessions answering concurrently. A test whose timing depends on one request waiting for
+/// another must therefore wire those requests through a single shared client — which is also how
+/// production wires every path (one `env.client`).
 final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var handler: ((URLRequest) -> (status: Int, body: Data))?
     nonisolated(unsafe) static var requests: [URLRequest] = []
@@ -64,6 +72,15 @@ final class FailingURLProtocol: URLProtocol {
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
     override func stopLoading() {}
+}
+
+extension XCTestCase {
+    /// A recorded request's query items as a dictionary, for asserting on request shape.
+    @MainActor
+    func query(_ request: URLRequest) -> [String: String] {
+        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        return Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+    }
 }
 
 extension KimaAPIClient {

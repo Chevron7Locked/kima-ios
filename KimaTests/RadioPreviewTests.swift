@@ -14,11 +14,6 @@ final class RadioPreviewTests: XCTestCase {
         StubURLProtocol.requests.filter { $0.url?.path.hasSuffix("/library/radio") == true }
     }
 
-    private func query(_ request: URLRequest) -> [String: String] {
-        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        return Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
-    }
-
     private func stub() {
         StubURLProtocol.handler = { req in
             if req.url?.path.hasSuffix("/library/radio") == true {

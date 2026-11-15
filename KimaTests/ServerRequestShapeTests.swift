@@ -6,11 +6,6 @@ import XCTest
 final class ServerRequestShapeTests: XCTestCase {
     override func tearDown() { StubURLProtocol.reset() }
 
-    private func query(_ request: URLRequest) -> [String: String] {
-        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        return Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
-    }
-
     func testEveryMixRequestCarriesTheTimeZone() async throws {
         StubURLProtocol.handler = { req in
             switch req.url!.path {

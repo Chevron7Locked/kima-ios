@@ -57,11 +57,8 @@ struct ReleaseRowView: View {
             maxPixel: 168
         )
         .frame(width: 56, height: 56)
-        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(KimaColor.hairline, lineWidth: 1)
-        )
+        // The literal 6 this row has always used, kept for pixel identity (off the radius ladder).
+        .kimaArtworkTile(cornerRadius: 6)
     }
 
     // MARK: - Info stack

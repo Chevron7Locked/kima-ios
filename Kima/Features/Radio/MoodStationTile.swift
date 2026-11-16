@@ -126,6 +126,8 @@ struct SleeveStack: View {
                         CoverArtImage(coverId: cover, size: 256, cornerRadius: KimaRadius.image)
                             .frame(width: front * (1 - step * 0.07), height: front * (1 - step * 0.07))
                             .brightness(-0.08 * Double(i))
+                            // Back sleeves only (i > 0): the front card's edge is its artwork, so this
+                            // conditional frame stays hand-spelled — kimaArtworkTile is unconditional.
                             .overlay {
                                 if i > 0 {
                                     RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
@@ -158,8 +160,7 @@ private struct BlankSleeve: View {
     var body: some View {
         RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
             .fill(KimaColor.surface)
-            .overlay(RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                .strokeBorder(KimaColor.hairline, lineWidth: 1))
+            .kimaArtworkTile()
             .frame(width: side, height: side)
     }
 }

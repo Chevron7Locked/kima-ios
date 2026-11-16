@@ -76,11 +76,10 @@ struct PlayerArtworkView: View {
                 cornerRadius: KimaRadius.hero,
                 heroPlaceholder: true
             )
+            // The tile sits under the shadow: a drop shadow reads only the opaque silhouette, which
+            // an inset hairline doesn't change, so the frame lands in exactly its old pixels.
+            .kimaArtworkTile(cornerRadius: KimaRadius.hero)
             .shadow(color: .black.opacity(0.60), radius: 24, x: 0, y: 12)
-            .overlay(
-                RoundedRectangle(cornerRadius: KimaRadius.hero, style: .continuous)
-                    .strokeBorder(KimaColor.hairline, lineWidth: 1)
-            )
             .overlay(skipHintChevrons)
             .gesture(coverSwipeGesture)
             // Tap opens the full-screen lightbox. A TapGesture needs zero movement and the swipe DragGesture needs

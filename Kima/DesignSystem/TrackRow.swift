@@ -141,11 +141,7 @@ struct TrackRow<Trailing: View>: View {
     private func coverTile(_ image: some View) -> some View {
         image
             .frame(width: 40, height: 40)
-            .clipShape(RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                    .strokeBorder(KimaColor.hairline, lineWidth: 1)
-            )
+            .kimaArtworkTile()
             .overlay {
                 if number == nil, !moodColumn, nowPlaying == .playing {
                     waveform

@@ -14,11 +14,7 @@ struct PlaylistPickerRow: View {
             HStack(spacing: KimaSpacing.md) {
                 PlaylistMosaicView(coverIds: playlistMosaicCoverIds(from: playlist.items), cellSize: 60)
                     .frame(width: 52, height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                            .strokeBorder(KimaColor.hairline, lineWidth: 1)
-                    )
+                    .kimaArtworkTile()
 
                 VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                     Text(playlist.name.lowercased())

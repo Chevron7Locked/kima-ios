@@ -26,11 +26,8 @@ struct SharedTrackBody: View {
             // Artwork
             SharedCoverImage(coverId: coverId, vm: vm, size: 512)
                 .frame(width: 240, height: 240)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(KimaColor.hairline, lineWidth: 1)
-                )
+                // The share sheet's own literal radius, kept for pixel identity.
+                .kimaArtworkTile(cornerRadius: 14)
                 .shadow(color: .black.opacity(0.5), radius: 24, x: 0, y: 12)
 
             // Metadata

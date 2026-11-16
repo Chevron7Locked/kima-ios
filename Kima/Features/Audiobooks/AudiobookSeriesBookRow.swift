@@ -65,11 +65,8 @@ struct SeriesBookRow: View {
             // a shelf of books, not a bare table (brief: "cover-forward").
             CoverArtImage(coverId: book.coverUrl, size: 112, cornerRadius: KimaRadius.image, placeholderSymbol: "book")
                 .frame(width: 56, height: 56)
+                .kimaArtworkTile()
                 .kimaShapeShadow(cornerRadius: KimaRadius.image, opacity: 0.4, radius: 6, y: 3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                        .strokeBorder(KimaColor.hairline, lineWidth: 1)
-                )
 
             // Title + narrator/author
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {

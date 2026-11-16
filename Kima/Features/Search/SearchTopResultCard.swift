@@ -73,8 +73,10 @@ struct SearchTopResultCard: View {
                     cornerRadius: KimaRadius.image
                 )
                 .frame(width: 92, height: 92)
+                // The tile sits under the shadow: a drop shadow reads only the opaque silhouette,
+                // which an inset hairline doesn't change, so this reorder lands in old pixels.
+                .kimaArtworkTile()
                 .shadow(color: .black.opacity(0.45), radius: 14, x: 0, y: 6)
-                .overlay(RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous).strokeBorder(KimaColor.hairline, lineWidth: 1))
             }
             .frame(width: 116, height: 116)
 

@@ -16,11 +16,7 @@ struct KimaDetailHero<Cover: View, Info: View>: View {
         HStack(alignment: .top, spacing: KimaSpacing.lg) {
             cover()
                 .frame(width: side, height: side)
-                .clipShape(RoundedRectangle(cornerRadius: KimaRadius.hero, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: KimaRadius.hero, style: .continuous)
-                        .strokeBorder(KimaColor.hairline, lineWidth: 1)
-                )
+                .kimaArtworkTile(cornerRadius: KimaRadius.hero)
                 .kimaSleeveElevation(cornerRadius: KimaRadius.hero)
 
             VStack(alignment: .leading, spacing: KimaSpacing.sm) {

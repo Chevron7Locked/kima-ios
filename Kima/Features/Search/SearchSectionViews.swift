@@ -163,7 +163,7 @@ struct SearchEpisodesSection: View {
                             RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
                                 .fill(KimaColor.surface)
                                 .frame(width: 40, height: 40)
-                                .overlay(RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous).strokeBorder(KimaColor.hairline, lineWidth: 1))
+                                .kimaArtworkTile()
                             Image(systemName: "mic.fill")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(KimaColor.textMuted)

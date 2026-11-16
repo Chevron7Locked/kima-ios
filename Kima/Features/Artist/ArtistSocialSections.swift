@@ -122,8 +122,8 @@ struct SimilarArtistCard: View {
                         cornerRadius: KimaRadius.image
                     )
                     .frame(width: 88, height: 88)
+                    .kimaArtworkTile()
                     .kimaSleeveElevation(cornerRadius: KimaRadius.image)
-                    .overlay(RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous).strokeBorder(KimaColor.hairline, lineWidth: 1))
 
                     if artist.inLibrary == true {
                         Image(systemName: "music.note.house.fill")

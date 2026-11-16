@@ -66,6 +66,9 @@ struct DiscoverFeaturedPick: View {
                 accessibilityLabel: "\(track.title) — \(track.artist)"
             )
             .frame(width: 112, height: 112)
+            // The tile sits under the glow and shadow: a drop shadow reads only the opaque
+            // silhouette, which an inset hairline doesn't change, so this reorder lands in old pixels.
+            .kimaArtworkTile()
             // Glow lives in the background so it bleeds behind the art as a soft halo
             // without enlarging the cover's layout footprint (no left-side dead space).
             .background {
@@ -77,10 +80,6 @@ struct DiscoverFeaturedPick: View {
                 .allowsHitTesting(false)
             }
             .shadow(color: .black.opacity(0.5), radius: 18, x: 0, y: 8)
-            .overlay(
-                RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                    .strokeBorder(KimaColor.hairline, lineWidth: 1)
-            )
             .overlay(alignment: .bottomTrailing) { playGlyph.padding(KimaSpacing.sm) }
         }
         .buttonStyle(.plain)

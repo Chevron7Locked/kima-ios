@@ -66,11 +66,8 @@ struct SharedHeroHeader<Meta: View>: View {
                     // Cover art thumbnail
                     SharedCoverImage(coverId: coverId, vm: vm, size: 256)
                         .frame(width: 120, height: 120)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(KimaColor.hairline, lineWidth: 1)
-                        )
+                        // The share sheet's own literal radius, kept for pixel identity.
+                        .kimaArtworkTile(cornerRadius: 10)
                         .shadow(color: .black.opacity(0.5), radius: 16, x: 0, y: 8)
 
                     VStack(alignment: .leading, spacing: KimaSpacing.xs) {

@@ -35,11 +35,7 @@ struct KimaCoverCard<Artwork: View, Accessory: View>: View {
                 Color.clear
                     .aspectRatio(1, contentMode: .fit)
                     .overlay { artwork() }
-                    .clipShape(RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                            .strokeBorder(KimaColor.hairline, lineWidth: 1)
-                    )
+                    .kimaArtworkTile()
                     .kimaSleeveElevation(cornerRadius: KimaRadius.image)
                 textLines
                     .padding(.top, KimaSpacing.sm)

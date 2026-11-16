@@ -50,11 +50,8 @@ struct DiscoverFeaturedRow: View {
                     accessibilityLabel: "\(row.track.title) — \(row.track.artist)"
                 )
                 .frame(width: 72, height: 72)
+                .kimaArtworkTile()
                 .kimaSleeveElevation(cornerRadius: KimaRadius.image)
-                .overlay(
-                    RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                        .strokeBorder(KimaColor.hairline, lineWidth: 1)
-                )
 
                 if row.isCurrent {
                     Circle().fill(KimaColor.discGlass).frame(width: 30, height: 30)
@@ -125,10 +122,7 @@ struct DiscoverCrateRow: View {
                 accessibilityLabel: "\(row.track.title) — \(row.track.artist)"
             )
             .frame(width: 48, height: 48)
-            .overlay(
-                RoundedRectangle(cornerRadius: KimaRadius.image, style: .continuous)
-                    .strokeBorder(KimaColor.hairline, lineWidth: 1)
-            )
+            .kimaArtworkTile()
 
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                 Text(row.track.title.lowercased())

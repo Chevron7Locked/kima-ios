@@ -15,7 +15,10 @@ struct CoverArtImage: View {
     /// Requested pixel dimension sent to the server (e.g. 48, 256, 512). The view's display
     /// size is set by the parent layout; this controls server-side resize quality.
     let size: Int
-    /// Corner radius applied to both the loaded image and the placeholder.
+    /// Corner radius applied to both the loaded image and the placeholder. The view SELF-CLIPS
+    /// to this radius, so callers get rounded art without an outer clipShape — a second clip at
+    /// the same radius (`.kimaArtworkTile()`) is a no-op here. `RemoteArtworkImage` is the
+    /// opposite: its caller owns the clip.
     var cornerRadius: CGFloat = 8
     /// When true the view fills the space its PARENT offers (full-bleed blurred hero backdrops)
     /// instead of locking to a width-driven square, which would leave the cover's right edge

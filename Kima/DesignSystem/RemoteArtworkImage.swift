@@ -3,6 +3,8 @@ import UIKit
 
 /// Public (unauthenticated) artwork image, e.g. a Deezer CDN URL, loaded through `ImageCache`
 /// without the bearer token. Re-fetches when `urlString` changes; shows a placeholder until loaded.
+/// Does NOT self-clip — the caller owns the frame (`.kimaArtworkTile()` is the app's standard
+/// rounded tile).
 struct RemoteArtworkImage: View {
     /// Absolute external image URL (e.g. Deezer CDN). Nil or invalid shows the placeholder.
     let urlString: String?

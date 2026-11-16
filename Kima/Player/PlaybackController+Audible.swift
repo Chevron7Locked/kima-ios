@@ -46,7 +46,8 @@ extension PlaybackController {
         /// answer both transport controls honor (ADR 0001), weighted per glyph and multiplied by
         /// each control's own scale factor. Measured from SF Symbol semibold ink centroids: the
         /// play triangle's mass is ~5.6% of its box width left of center, the retry arrow ~3.0% —
-        /// about half — pause is symmetric, and a fetch renders a spinner, not a glyph. Keyed off
+        /// about half — pause is symmetric, and a fetch renders a spinner, not a glyph (reproduce:
+        /// `scripts/glyph-centroids.swift`). Keyed off
         /// `systemImage` so a state that reuses a glyph inherits its centering; view bodies must
         /// not hand-compare glyphs for an offset.
         var opticalNudgeWeight: Double {

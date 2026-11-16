@@ -10,6 +10,32 @@ import XCTest
 /// the test's job — production's owner (AppEnvironment) has neither duty here.
 nonisolated(unsafe) private var startedManagers: [SSEManager] = []
 
+/// One stub host per manager (ticket 21). The teardown comment documents a cancelled
+/// manager's last in-flight request landing after the next test's reset — under whole-suite
+/// load that window widens from "documented" to "expected", and a stray counted as this
+/// test's own turns a working reconnect into a red assertion no deadline can save. Scoping
+/// the record by identity (host) instead of by reset timing makes strays uncountable, always.
+nonisolated(unsafe) private var stubHostCount = 0
+
+private func nextStubServer() -> KimaServer {
+    stubHostCount += 1
+    return KimaServer(baseURL: URL(string: "https://stub-\(stubHostCount).test")!)
+}
+
+/// Wait budget for conditions produced by stub round-trips (ticket 21), replacing the
+/// default 2 s that ticket 20's pre-commit run watched lose once to whole-suite pressure.
+/// Measured 2026-11-16: every wait in this class lands ~15 ms after start, idle and inside a
+/// quiet full-suite run alike — but each hop of the reconnect loop needs a main-actor turn,
+/// so CPU starvation stretches all hops together. Deterministic reproduction, kept here so
+/// these numbers stay re-derivable rather than folklore (ticket 19's centroid script is the
+/// precedent): start `Task { @MainActor in let end = Date().addingTimeInterval(3); while
+/// Date() < end {} }` beside the manager — it reds the 2 s default with `[]` vs
+/// `["tk-1", "tk-2"]` and greens this budget under identical starvation; time arrivals by
+/// wrapping `StubURLProtocol.handler` to see where a real overrun goes. No finite budget
+/// survives an unbounded stall; the measurement buys ~650× margin and keeps a true failure
+/// bounded — ticket 15's retro forbids unbounded waits.
+private let stubRoundtripTimeout: TimeInterval = 10
+
 /// The reconnect loop (ticket 09) under unit test, driven through the session-factory seam:
 /// `SSEManager(sessions: StubSessionFactory())` plus a stubbed client means the ticket mint and
 /// the stream GET both answer from canned responses — backoff growth, ticket-per-connection,
@@ -27,7 +53,9 @@ final class SSEManagerReconnectTests: XCTestCase {
         // here and not in an addTeardownBlock: a no-delay-backoff manager still alive when the
         // next test installs its handler would mint through it mid-assertion, and one GET that
         // was already in flight at cancel time lands after the next setUp's reset. Settle the
-        // strays, then wipe them, so nothing crosses the test boundary.
+        // strays, then wipe them — but correctness does not rest on the timing: each manager
+        // answers on its own host (see `nextStubServer`) and every count filters by host, so a
+        // stray that outlives the settle window is uncountable rather than merely unlikely.
         let managers = startedManagers
         startedManagers.removeAll()
         await MainActor.run { managers.forEach { $0.teardown() } }
@@ -52,38 +80,50 @@ final class SSEManagerReconnectTests: XCTestCase {
         var count = 0
     }
 
-    /// A manager wired to the stubs and already streaming: created, backoff injected (nil keeps
-    /// the production sleep), started against the stub server, kept alive by `startedManagers`
-    /// until `tearDown` cancels it. Callers keep only their handler — the data difference.
+    /// A manager wired to the stubs and already streaming, plus the server it answers on:
+    /// created, backoff injected (nil keeps the production sleep), started against its own
+    /// stub host (see `nextStubServer`), kept alive by `startedManagers` until `tearDown`
+    /// cancels it. The client is minted on the same host so every request this manager
+    /// provokes — mint or stream — carries that host, which is why observing callers get the
+    /// server back rather than threading one in.
     @discardableResult
     private func startedManager(
         credential: KimaCredential = .jwt("test"),
         backoffDelay: (@Sendable (Duration) async -> Void)? = nil
-    ) -> SSEManager {
+    ) -> (SSEManager, KimaServer) {
+        let server = nextStubServer()
         let sse = SSEManager(sessions: StubSessionFactory())
         if let backoffDelay { sse.backoffDelay = backoffDelay }
         startedManagers.append(sse)   // strong home — see the file-level declaration
-        sse.start(client: .stubbed(credential: credential),
-                  server: KimaServer(baseURL: URL(string: "https://stub.test")!))
-        return sse
+        sse.start(client: .stubbed(credential: credential, baseURL: server.baseURL),
+                  server: server)
+        return (sse, server)
     }
 
-    /// The stream GETs the loop opened (path is exactly /api/events; the mint ends in /ticket).
-    private var streamRequests: [URLRequest] {
-        StubURLProtocol.requests.filter { $0.url?.path == "/api/events" }
+    /// The stream GETs `server`'s manager opened (path is exactly /api/events; the mint ends
+    /// in /ticket). Scoped by host so another test's late stray can never join the count.
+    private func streamRequests(from server: KimaServer) -> [URLRequest] {
+        StubURLProtocol.requests.filter {
+            $0.url?.path == "/api/events" && $0.url?.host == server.baseURL.host
+        }
     }
 
     /// A handler where the mint answers with a fresh ticket per call — except the first
     /// `mintFailures`, which fail transiently — and the stream answers `streamStatus` with
-    /// `streamBody`.
+    /// `streamBody`. The ticket sequence is keyed by host (ticket 21): tests assert ticket
+    /// VALUES (`tk-1`, `tk-2`), and a stray mint from an earlier cancelled manager can still
+    /// reach this handler after it's installed — one shared counter would shift this
+    /// manager's numbering without that mint ever entering the host-scoped counts.
     private func stubStream(mintFailures: Int = 0, streamStatus: Int = 200, streamBody: String = "") {
-        var mintCount = 0
+        var mintCounts: [String: Int] = [:]   // one ticket sequence per stub host
         StubURLProtocol.handler = { req in
             switch req.url?.path {
             case "/api/events/ticket":
-                mintCount += 1
-                guard mintCount > mintFailures else { return (500, Data()) }
-                return (200, Data("{\"ticket\":\"tk-\(mintCount)\"}".utf8))
+                let host = req.url?.host ?? "?"
+                let attempt = (mintCounts[host] ?? 0) + 1
+                mintCounts[host] = attempt
+                guard attempt > mintFailures else { return (500, Data()) }
+                return (200, Data("{\"ticket\":\"tk-\(attempt)\"}".utf8))
             case "/api/events":
                 return (streamStatus, Data(streamBody.utf8))
             default:
@@ -109,14 +149,14 @@ final class SSEManagerReconnectTests: XCTestCase {
             forName: .kimaSSEAuthFailed, object: nil, queue: nil) { _ in signals.count += 1 }
         defer { NotificationCenter.default.removeObserver(token) }
 
-        startedManager(credential: credential, backoffDelay: { _ in })
+        let (_, server) = startedManager(credential: credential, backoffDelay: { _ in })
 
-        await waitUntil { signals.count >= 1 }
+        await waitUntil(stubRoundtripTimeout) { signals.count >= 1 }
         try? await Task.sleep(nanoseconds: 100_000_000)
         XCTAssertEqual(signals.count, 1, "sign-out must be announced exactly once", file: file, line: line)
-        XCTAssertEqual(StubURLProtocol.posts(to: "/events/ticket").count, 1,
+        XCTAssertEqual(StubURLProtocol.posts(to: "/events/ticket", host: server.baseURL.host).count, 1,
                        "an auth rejection must stop reconnecting, not mint again", file: file, line: line)
-        XCTAssertEqual(streamRequests.count, expectedStreamAttempts,
+        XCTAssertEqual(streamRequests(from: server).count, expectedStreamAttempts,
                        "an auth rejection must stop reconnecting, not re-open the stream", file: file, line: line)
     }
 
@@ -126,11 +166,11 @@ final class SSEManagerReconnectTests: XCTestCase {
     /// a minted ticket reaches the stream URL and a parsed event bumps its tick.
     func testStreamOpensThroughTheStubSessionAndEventsFlow() async {
         stubStream(streamBody: "data: {\"type\":\"download:progress\"}\n\n")
-        let sse = startedManager()   // production backoff: no reconnect races the assertions
+        let (sse, server) = startedManager()   // production backoff: no reconnect races the assertions
 
-        await waitUntil { sse.downloadTick >= 1 }
+        await waitUntil(stubRoundtripTimeout) { sse.downloadTick >= 1 }
         XCTAssertEqual(sse.downloadTick, 1, "a frame on the stub stream must reach the dispatcher")
-        let stream = streamRequests.first
+        let stream = streamRequests(from: server).first
         XCTAssertEqual(stream?.url?.query?.contains("ticket=tk-1"), true,
                        "the stream URL must carry the freshly minted ticket")
     }
@@ -138,12 +178,16 @@ final class SSEManagerReconnectTests: XCTestCase {
     /// A stream the server closes is not the end: the loop reconnects, and the second
     /// connection mints its own ticket — tickets are single-use, so reuse would be a silent
     /// 401 loop against a real server. Watched as the settled first two stream GETs.
+    /// The wait rides `stubRoundtripTimeout`, not the folklore default: this condition needs
+    /// four stub round-trips and every hop needs a main-actor turn, which is exactly what
+    /// whole-suite CPU starvation stretches — ticket 20's pre-commit run saw the 2 s default
+    /// lose here once (ticket 21).
     func testDroppedStreamReconnectsWithAFreshTicket() async {
         stubStream()   // mint answers tk-n; the stream answers 200 and closes at once
-        startedManager(backoffDelay: { _ in })   // instant retry: reconnects arrive without waits
+        let (_, server) = startedManager(backoffDelay: { _ in })   // instant retry: reconnects arrive without waits
 
-        await waitUntil { self.streamRequests.count >= 2 }
-        let tickets = streamRequests.prefix(2).map {
+        await waitUntil(stubRoundtripTimeout) { self.streamRequests(from: server).count >= 2 }
+        let tickets = streamRequests(from: server).prefix(2).map {
             URLComponents(url: $0.url!, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "ticket" })?.value ?? "?"
         }
@@ -161,7 +205,7 @@ final class SSEManagerReconnectTests: XCTestCase {
         let recorder = DurationRecorder()
         startedManager(backoffDelay: { await recorder.record($0) })
 
-        await waitUntil { await recorder.count >= 6 }
+        await waitUntil(stubRoundtripTimeout) { await recorder.count >= 6 }
         // The prefix only: with the delay injected away the loop retries instantly, so later
         // entries keep arriving — the first six are settled once written.
         let recorded = await recorder.durations
@@ -178,7 +222,7 @@ final class SSEManagerReconnectTests: XCTestCase {
         let recorder = DurationRecorder()
         startedManager(backoffDelay: { await recorder.record($0) })
 
-        await waitUntil { await recorder.count >= 2 }
+        await waitUntil(stubRoundtripTimeout) { await recorder.count >= 2 }
         let recorded = await recorder.durations
         XCTAssertEqual(Array(recorded.prefix(2)), [.seconds(1), .seconds(1)],
                        "one failure then one success must sleep 1 s, not the doubled 2 s")

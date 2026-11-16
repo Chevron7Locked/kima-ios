@@ -19,9 +19,12 @@ final class StubURLProtocol: URLProtocol {
     static func reset() { handler = nil; requests = []; bodies = [] }
 
     /// Requests whose path ends with `suffix`, with their bodies decoded as JSON objects.
-    static func posts(to suffix: String) -> [[String: Any]] {
+    /// With `host`, only requests to that host — how a test scopes the record to its own
+    /// client when earlier tests' cancelled strays might still land (ticket 21).
+    static func posts(to suffix: String, host: String? = nil) -> [[String: Any]] {
         zip(requests, bodies).compactMap { req, body in
             guard req.url?.path.hasSuffix(suffix) == true else { return nil }
+            if let host, req.url?.host != host { return nil }
             return (try? JSONSerialization.jsonObject(with: body)) as? [String: Any] ?? [:]
         }
     }
@@ -84,8 +87,11 @@ extension XCTestCase {
 }
 
 extension KimaAPIClient {
-    static func stubbed(credential: KimaCredential = .jwt("test")) -> KimaAPIClient {
-        KimaAPIClient(server: KimaServer(baseURL: URL(string: "https://stub.test")!),
+    /// A client answering from `StubURLProtocol`. Pass `baseURL` to put the client and an
+    /// SSE manager on one host, so request-record filters can scope to that pair (ticket 21).
+    static func stubbed(credential: KimaCredential = .jwt("test"),
+                        baseURL: URL = URL(string: "https://stub.test")!) -> KimaAPIClient {
+        KimaAPIClient(server: KimaServer(baseURL: baseURL),
                       credential: credential, sessions: StubSessionFactory())
     }
 }

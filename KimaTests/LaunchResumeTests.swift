@@ -7,25 +7,14 @@ import XCTest
 /// skips. On-device behavior these pin: a revoked server still signs the user out at launch; an
 /// offline launch offers retry rather than silent sign-out.
 @MainActor
-final class LaunchResumeTests: XCTestCase {
+final class LaunchResumeTests: KeychainLoginTestCase {
     private let server = KimaServer(baseURL: URL(string: "https://resume.test")!)
-    private var savedLogin = KeychainLoginSnapshot()
 
     override func setUpWithError() throws {
-        StubURLProtocol.reset()
-        savedLogin = KeychainLoginSnapshot()
-        // These tests must run and pass, not skip: a host that cannot write the Keychain is an
-        // environment failure worth going red over.
-        XCTAssertTrue(KeychainStore.setCredential("probe", for: KeychainStore.accessToken, server: server))
-        XCTAssertTrue(KeychainStore.clearCredentials())
+        try super.setUpWithError()   // HTTP reset, login snapshot, clean slate, hard writability assert
         UserDefaults.standard.set(server.baseURL.absoluteString, forKey: ServerURLStore.key)
         XCTAssertTrue(KeychainStore.setCredential("live-token", for: KeychainStore.accessToken, server: server))
         // No refresh token is stored: a 401 propagates instead of looping (the -kima-jwt rule).
-    }
-
-    override func tearDown() {
-        StubURLProtocol.reset()
-        savedLogin.restore()   // takes the stored server address back with it
     }
 
     private func respond(_ status: Int, _ body: String = "{}") {

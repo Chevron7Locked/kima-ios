@@ -29,12 +29,8 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent / "KimaTests"
 SUPPORT = ROOT / "Support"
 
-BASELINE = {
-    # Known debt: full ritual re-implemented before this check landed — migrate to
-    # KeychainLoginTestCase (its quiesce() hook covers loop-stopping suites) and remove here.
-    "LaunchResumeTests.swift",
-    "CredentialServerTests.swift",
-}
+BASELINE: set[str] = set()   # shrink-only, like POLLS_BASELINE — empty since ticket 22
+                             # (LaunchResumeTests, CredentialServerTests migrated in)
 
 RITUAL = re.compile(r'KeychainStore\.setCredential\(\s*"probe"')
 SUBCLASS = re.compile(r':\s*KeychainLoginTestCase\b')

@@ -5,24 +5,12 @@ import XCTest
 /// server address; if the app dies in between, the next launch must not send the new server's
 /// token to the old address. Runs against the test host's real Keychain and UserDefaults.
 @MainActor
-final class CredentialServerTests: XCTestCase {
+final class CredentialServerTests: KeychainLoginTestCase {
     private let old = KimaServer(baseURL: URL(string: "https://kima-old.invalid")!)
     private let new = KimaServer(baseURL: URL(string: "https://kima-new.invalid:3443")!)
-    private var savedLogin = KeychainLoginSnapshot()
-
-    override func setUpWithError() throws {
-        StubURLProtocol.reset()
-        savedLogin = KeychainLoginSnapshot()
-        guard KeychainStore.setCredential("probe", for: KeychainStore.accessToken, server: old) else {
-            throw XCTSkip("Keychain writes are unavailable in this test host")
-        }
-        XCTAssertTrue(KeychainStore.clearCredentials())
-    }
-
-    override func tearDown() {
-        StubURLProtocol.reset()
-        savedLogin.restore()   // takes the stored server address back with it
-    }
+    // No setUp: the shared posture seeds a clean slate (no credentials, no stored address) and
+    // hard-asserts Keychain writability — ticket 10's ruling: a host that cannot write the
+    // Keychain goes red, never skips.
 
     func testCredentialIsReadOnlyForTheServerItWasSavedFor() {
         XCTAssertTrue(KeychainStore.setCredential("tok", for: KeychainStore.accessToken, server: new))

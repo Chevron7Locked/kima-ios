@@ -87,28 +87,37 @@ enum KimaMetaLineBuilder {
 
     static func buildExpression<V: View>(_ view: V) -> Fact {
         Fact(bare: AnyView(view),
-             withLeadingBullet: AnyView(separatedBody(view)))
+             withLeadingBullet: AnyView(leadingBody(view)))
     }
 
     static func buildOptional<V: View>(_ view: V?) -> Fact {
-        Fact(bare: AnyView(bareBody(view)),
-             withLeadingBullet: AnyView(leadingBody(view)),
-             withTrailingBullet: AnyView(trailingBody(view)),
-             joined: true)
+        joined(bare: AnyView(bareBody(view)),
+               leading: AnyView(leadingBody(view)),
+               trailing: AnyView(trailingBody(view)))
     }
 
     /// The chain-argument spelling (`buildOptional(buildBlock(buildExpression(...)))`): the
     /// concrete overload exact-matches the `Fact` the chain already produced, so `V` never
-    /// enters inference at the call site at all.
+    /// enters inference at the call site at all. The compiler demands BOTH signatures, so the
+    /// overloads' shared shape lives in `joined`; the three `*Body` calls are per-signature
+    /// plumbing (`V` must stay consumed inside a builder method).
+    /// NOT `buildOptional<Fact>(view)`: an explicit specialization does not bypass the
+    /// concrete overload's exact match — that delegation is infinite recursion, compiled
+    /// cleanly by build-for-testing and crashed at runtime by the two `if`-fact tests.
     static func buildOptional(_ view: Fact?) -> Fact {
-        Fact(bare: AnyView(bareBody(view)),
-             withLeadingBullet: AnyView(leadingBody(view)),
-             withTrailingBullet: AnyView(trailingBody(view)),
-             joined: true)
+        joined(bare: AnyView(bareBody(view)),
+               leading: AnyView(leadingBody(view)),
+               trailing: AnyView(trailingBody(view)))
     }
 
+    private static func joined(bare: AnyView, leading: AnyView, trailing: AnyView) -> Fact {
+        Fact(bare: bare, withLeadingBullet: leading, withTrailingBullet: trailing, joined: true)
+    }
+
+    /// The non-optional twin of `leadingBody` below — the bare/leading/trailing trio named by
+    /// position; a plain fact's leading form needs no optionality envelope.
     @ViewBuilder
-    private static func separatedBody<V: View>(_ view: V) -> some View {
+    private static func leadingBody<V: View>(_ view: V) -> some View {
         KimaMetaLineSeparator.view
         view
     }
@@ -144,8 +153,10 @@ enum KimaMetaLineBuilder {
     }
 
     static func buildBlock(_ facts: Fact...) -> Fact {
-        Fact(bare: AnyView(line(facts)),
-             withLeadingBullet: AnyView(line(facts)))
+        // A line's bare and leading forms are one view: a composite self-separates (the
+        // bullets ride inside each fact's render), so there is nothing to add out front.
+        let line = AnyView(line(facts))
+        return Fact(bare: line, withLeadingBullet: line)
     }
 
     private static func line(_ facts: [Fact]) -> some View {

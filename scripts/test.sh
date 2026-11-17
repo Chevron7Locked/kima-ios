@@ -35,10 +35,12 @@ fi
 
 LOG=$(mktemp "${TMPDIR:-/tmp}/kima-test.XXXXXX") || exit 2
 echo "full log: $LOG (destination id=$UDID)"
+# Stable pointer for post-mortems: mktemp paths under $TMPDIR are unguessable; build/ is gitignored.
+mkdir -p build && ln -sfn "$LOG" build/last-test.log || true
 
 # The transcript goes to $LOG, never stdout: a full run is ~100KB, and an agent that pipes
 # that away to save context loses the exit code with it. Green exits quietly past the header;
-# red prints its own failure tail below. Read $LOG when you want the transcript.
+# red prints its own failure tail below. Read $LOG (also build/last-test.log) for the transcript.
 xcodebuild -project Kima.xcodeproj -scheme Kima \
     -destination "platform=iOS Simulator,id=$UDID" \
     test "$@" >"$LOG" 2>&1

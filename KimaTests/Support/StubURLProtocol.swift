@@ -11,6 +11,10 @@ import XCTest
 /// sessions answering concurrently. A test whose timing depends on one request waiting for
 /// another must therefore wire those requests through a single shared client — which is also how
 /// production wires every path (one `env.client`).
+///
+/// When a test scopes this record by identity — its own stub host, ticket 21 — scope every
+/// observable channel with it: a handler counter that mints response bodies shifts assertions
+/// on content even while the host-filtered counts stay clean.
 final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var handler: ((URLRequest) -> (status: Int, body: Data))?
     nonisolated(unsafe) static var requests: [URLRequest] = []

@@ -186,21 +186,18 @@ private struct ImportJobRow: View {
             // Content
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                 Text(job.playlistName)
-                    .font(KimaType.captionStrong)
-                    .foregroundStyle(KimaColor.textPrimary)
-                    .lineLimit(1)
+                    .kimaJobRowTitle()
 
-                HStack(spacing: KimaSpacing.xs) {
+                // The two literal "--" separators this row hand-spelled are now the shared bullet.
+                KimaMetaLine {
                     Text(statusLabel)
-                        .font(KimaType.meta)
                         .foregroundStyle(statusColor)
                     if isActive && job.albumsTotal > 0 {
-                        Text("--").font(KimaType.meta).foregroundStyle(KimaColor.textMuted)
                         Text("\(job.albumsCompleted)/\(job.albumsTotal) \(job.albumsTotal == 1 ? "album" : "albums")")
-                            .font(KimaType.meta.monospacedDigit()).foregroundStyle(KimaColor.textMuted)
+                            .font(KimaType.meta.monospacedDigit())
                     }
-                    Text("--").font(KimaType.meta).foregroundStyle(KimaColor.textMuted)
-                    Text(age).font(KimaType.meta.monospacedDigit()).foregroundStyle(KimaColor.textMuted)
+                    Text(age)
+                        .font(KimaType.meta.monospacedDigit())
                 }
 
                 // Progress bar for active imports with album counts

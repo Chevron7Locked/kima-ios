@@ -36,42 +36,16 @@ struct ActiveDownloadRow: View {
             // Content
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                 Text(job.subject.lowercased())
-                    .font(KimaType.captionStrong)
-                    .foregroundStyle(KimaColor.textPrimary)
-                    .lineLimit(2)
+                    .kimaJobRowTitle(lineLimit: 2)
 
-                HStack(spacing: KimaSpacing.sm) {
-                    // Status badge
+                KimaMetaLine {
                     Text(job.status.lowercased())
-                        .font(KimaType.meta)
                         .foregroundStyle(statusColor)
-
                     if let statusText = job.metadata?.statusText, !statusText.isEmpty {
-                        Text("•")
-                            .font(KimaType.meta)
-                            .foregroundStyle(KimaColor.textMuted)
                         Text(statusText)
-                            .font(KimaType.meta)
-                            .foregroundStyle(KimaColor.textMuted)
                     }
-
-                    Text("•")
-                        .font(KimaType.meta)
-                        .foregroundStyle(KimaColor.textMuted)
-
-                    // Type icon
-                    Label(job.type, systemImage: job.type == "album" ? "opticaldisc" : "music.mic")
-                        .font(KimaType.meta)
-                        .foregroundStyle(KimaColor.textMuted)
-                        .labelStyle(.titleAndIcon)
-
-                    Text("•")
-                        .font(KimaType.meta)
-                        .foregroundStyle(KimaColor.textMuted)
-
+                    KimaJobTypeLabel(type: job.type)
                     Text(elapsed)
-                        .font(KimaType.meta)
-                        .foregroundStyle(KimaColor.textMuted)
                 }
             }
 

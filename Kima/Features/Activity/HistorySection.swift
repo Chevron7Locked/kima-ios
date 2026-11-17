@@ -220,17 +220,11 @@ private struct HistoryRow: View {
             // Content
             VStack(alignment: .leading, spacing: KimaSpacing.xs) {
                 Text(item.subject)
-                    .font(KimaType.captionStrong)
-                    .foregroundStyle(KimaColor.textPrimary)
-                    .lineLimit(1)
+                    .kimaJobRowTitle()
 
-                HStack(spacing: KimaSpacing.xs) {
-                    Label(item.type, systemImage: item.type == "album" ? "opticaldisc" : "music.mic")
-                        .font(KimaType.meta)
-                        .foregroundStyle(KimaColor.textMuted)
-                        .labelStyle(.titleAndIcon)
-                    Text("•").font(KimaType.meta).foregroundStyle(KimaColor.textMuted)
-                    Text(statusTime).font(KimaType.meta.monospacedDigit()).foregroundStyle(KimaColor.textMuted)
+                KimaMetaLine {
+                    KimaJobTypeLabel(type: item.type)
+                    Text(statusTime).font(KimaType.meta.monospacedDigit())
                 }
 
                 if let err = item.error, !err.isEmpty {

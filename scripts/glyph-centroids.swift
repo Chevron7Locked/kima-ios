@@ -1,5 +1,7 @@
 #!/usr/bin/env swift
 // glyph-centroids — measure and eyeball SF Symbol optical centering.
+// Not wired to any gate on purpose: this is the provenance tool for the nudge table
+// shipping in PlaybackController+Audible.swift — re-run it whenever a glyph changes.
 //
 // Reproduces the numbers behind PlaybackController.TransportDisplayState.opticalNudgeWeight
 // (ticket 19): where a glyph's ink mass sits vs its layout-box center, which is what reads

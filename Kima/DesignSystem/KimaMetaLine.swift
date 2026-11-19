@@ -185,7 +185,7 @@ extension View {
 }
 
 /// A job's type as a meta-line fact: its label text beside the `JobType` glyph — the Label
-/// the download and history rows each used to spell, mapping and all.
+/// every job row shows, the mapping spelled once in `JobType`.
 struct KimaJobTypeLabel: View {
     let type: String
 

@@ -9,7 +9,7 @@ restore). That copy survives check-duplication.py because semantic copying needs
 identity — so this is its proxy: a test file outside Support/ that re-implements the
 writability-probe posture (KeychainLoginSnapshot + the probe credential) must declare
 `: KeychainLoginTestCase`. Per-test fixtures are NOT violations: snapshotting around a
-single write with `defer` (KimaAPIClientTests, StreamTicketTests) is what
+single write with `defer` (KimaAPIClientTests) is what
 KeychainLoginSnapshot exists for; only the suite-level ritual fires.
 
 2. Unbounded poll loops. A `while <condition> { await Task.yield() }` has no deadline: when

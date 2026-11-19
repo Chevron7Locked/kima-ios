@@ -143,7 +143,7 @@ final class PlaybackController {
 
     /// Reference to the API client for the expired-session probe (`sessionHasExpired`) after a
     /// refused mint. Set by AppEnvironment after init; kept non-nil for the duration of the
-    /// authenticated session. Stream URLs no longer come from here — they come from `streamSource`.
+    /// authenticated session.
     var apiClient: KimaAPIClient?
 
     /// The session's stream-ticket module (ticket 13): every load path asks it for a playable

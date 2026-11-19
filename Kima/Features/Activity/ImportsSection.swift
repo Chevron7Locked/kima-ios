@@ -188,7 +188,6 @@ private struct ImportJobRow: View {
                 Text(job.playlistName)
                     .kimaJobRowTitle()
 
-                // The two literal "--" separators this row hand-spelled are now the shared bullet.
                 KimaMetaLine {
                     Text(statusLabel)
                         .foregroundStyle(statusColor)

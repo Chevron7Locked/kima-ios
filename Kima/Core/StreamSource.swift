@@ -176,7 +176,7 @@ final class StreamSource {
 
     // MARK: - Ticket mint
 
-    /// The raw short-lived stream ticket, minted or taken from the cache. Private since ticket 14:
+    /// The raw short-lived stream ticket, minted or taken from the cache. Private:
     /// every answer above builds on it, and nothing outside this module sees a ticket or assembles
     /// a `?token=` URL. On a 404 (server without the ticket endpoint) returns the login JWT, the
     /// only stream credential that server accepts; on any other failure returns nil, and callers

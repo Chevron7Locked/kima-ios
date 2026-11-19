@@ -157,7 +157,7 @@ struct ArtistHeroView: View {
             // audible; the tap hands this page's membership rule and its play-all action to the
             // controller's one dispatch (ADR 0001): resume/pause while this artist holds the
             // player, fetch a fresh queue only when it doesn't.
-            KimaHeroPlayButton(isPlaying: artistIsAudible, label: "play all") {
+            KimaHeroPlayButton(isAudible: artistIsAudible, label: "play all") {
                 player.handleHeroTap(owns: isThisArtist, start: onPlayAll)
             }
             .disabled(!hasOwned && source == .library)

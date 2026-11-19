@@ -9,7 +9,7 @@ extension PodcastDetailView {
     // MARK: - Episode list section
 
     @ViewBuilder
-    func episodeListSection(podcast: Podcast, episodes: [Episode], playingId: String?) -> some View {
+    func episodeListSection(podcast: Podcast, episodes: [Episode], audibleEpisodeId: String?) -> some View {
         let total = vm.episodeTotal ?? episodes.count
         KimaSectionHeader(title: "episodes \(total)") {
             Picker("sort", selection: $vm.episodeSort) {
@@ -39,7 +39,7 @@ extension PodcastDetailView {
                 }
                 EpisodeRowView(
                     episode: row.episode,
-                    isPlaying: row.episode.id == playingId,
+                    isAudible: row.episode.id == audibleEpisodeId,
                     onPlay: {
                         playOrToggle(row.episode, podcast: podcast, queue: episodes)
                     },

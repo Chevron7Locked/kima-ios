@@ -61,7 +61,8 @@ struct PodcastCardView: View {
 /// with mark as played / remove progress (the same actions also sit on a long press).
 struct EpisodeRowView: View {
     let episode: Episode
-    let isPlaying: Bool
+    /// The episode main playback has sound from (engine truth, ADR 0001) — the row light.
+    let isAudible: Bool
     let onPlay: () -> Void
     let onMarkComplete: () -> Void
     let onDeleteProgress: () -> Void
@@ -105,9 +106,9 @@ struct EpisodeRowView: View {
     private var playButton: some View {
         Button(action: onPlay) {
             HStack(alignment: .top, spacing: KimaSpacing.md) {
-                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                Image(systemName: isAudible ? "pause.circle.fill" : "play.circle.fill")
                     .font(.system(size: 36))
-                    .foregroundStyle(isPlaying ? KimaColor.brand : KimaColor.textPrimary)
+                    .foregroundStyle(isAudible ? KimaColor.brand : KimaColor.textPrimary)
                     .padding(.top, 2)  // optical: sits the icon on the first text line
 
                 VStack(alignment: .leading, spacing: KimaSpacing.xs) {
@@ -147,7 +148,7 @@ struct EpisodeRowView: View {
         .buttonStyle(.plain)
         // State-driven label: the row tells accessibility what a tap would do, so the icon's play/pause state
         // is readable (and testable) rather than fixed to "play".
-        .accessibilityLabel("\(isPlaying ? "pause" : "play") episode \(episode.title)")
+        .accessibilityLabel("\(isAudible ? "pause" : "play") episode \(episode.title)")
         // Stable test hook ("episode-play"): an episode row's control; one per visible episode.
         .accessibilityIdentifier("episode-play")
         .contextMenu { actions }

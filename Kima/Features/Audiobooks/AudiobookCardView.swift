@@ -26,7 +26,7 @@ struct AudiobookCardView: View {
     }
 
     var body: some View {
-        KimaCoverCard(title: title, subtitle: author, titleLines: 2, isPlaying: bookIsAudible, onPlay: onPlay,
+        KimaCoverCard(title: title, subtitle: author, titleLines: 2, isAudible: bookIsAudible, onPlay: onPlay,
                       onTap: onTap) {
             CoverArtImage(coverId: coverId, size: 256, cornerRadius: 0, placeholderSymbol: "book")
                 .overlay(alignment: .bottom) {

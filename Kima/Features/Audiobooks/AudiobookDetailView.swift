@@ -52,7 +52,7 @@ struct AudiobookDetailView: View {
                         LiveSectionList(
                             sections: vm.displaySections,
                             isLoaded: isThisBookLoaded(book),
-                            isPlaying: isThisBookAudible(book)
+                            isAudible: isThisBookAudible(book)
                         ) { section in
                             if isThisBookLoaded(book) {
                                 env.player.seek(to: section.start)
@@ -230,13 +230,13 @@ private struct LiveSectionList: View {
     let sections: [AudiobookSection]
     /// This book is the one in the player.
     let isLoaded: Bool
-    let isPlaying: Bool
+    let isAudible: Bool
     let onSelect: (AudiobookSection) -> Void
 
     @Environment(AppEnvironment.self) private var env
 
     var body: some View {
-        SectionListView(sections: sections, currentIndex: currentIndex, isPlaying: isPlaying, onSelect: onSelect)
+        SectionListView(sections: sections, currentIndex: currentIndex, isAudible: isAudible, onSelect: onSelect)
     }
 
     /// Server (1-based) `index` of the chapter containing the playback position, or nil when this book isn't loaded.

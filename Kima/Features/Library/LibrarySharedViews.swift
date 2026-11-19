@@ -84,7 +84,7 @@ struct LibraryGridCard: View {
     }
 
     var body: some View {
-        KimaCoverCard(title: title, subtitle: subtitle, mood: mood, isPlaying: menuIsAudible,
+        KimaCoverCard(title: title, subtitle: subtitle, mood: mood, isAudible: menuIsAudible,
                       isBusy: isBusy, onPlay: onPlay, onTap: onTap) {
             CoverArtImage(coverId: coverId, size: 256, cornerRadius: 0)
         }

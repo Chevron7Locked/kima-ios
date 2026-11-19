@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The one cover card for rails and grids: square art with a hairline edge, a lowercase title over one muted
 /// line, and the shared spring press. With a subtitle, cards in a grid share one height. Optional: a third muted
-/// line (`detail`), a corner play badge (`onPlay`, amber while `isPlaying`), a mood dot and a top-trailing
+/// line (`detail`), a corner play badge (`onPlay`, amber while `isAudible`), a mood dot and a top-trailing
 /// accessory. The caller sets the width; a card with no destination fades to half.
 struct KimaCoverCard<Artwork: View, Accessory: View>: View {
     let title: String
@@ -14,7 +14,7 @@ struct KimaCoverCard<Artwork: View, Accessory: View>: View {
     var detail: String? = nil
     /// A small mood-colour dot before the subtitle.
     var mood: Color? = nil
-    var isPlaying: Bool = false
+    var isAudible: Bool = false
     /// Playback for this card is being fetched: the badge spins and taps are ignored.
     var isBusy: Bool = false
     var onPlay: (() -> Void)? = nil
@@ -54,7 +54,7 @@ struct KimaCoverCard<Artwork: View, Accessory: View>: View {
                     if let onPlay {
                         // In a grid of two hundred covers a bare "play" says nothing about which item plays, so
                         // the badge is named after the card, busy state included.
-                        CoverPlayBadge(isActive: isPlaying, isBusy: isBusy, action: onPlay)
+                        CoverPlayBadge(isActive: isAudible, isBusy: isBusy, action: onPlay)
                             .accessibilityLabel(isBusy ? "loading \(displayTitle)" : "play \(displayTitle)")
                             .padding(KimaSpacing.sm)
                     }
@@ -113,11 +113,11 @@ struct KimaCoverCard<Artwork: View, Accessory: View>: View {
 
 extension KimaCoverCard where Accessory == EmptyView {
     init(title: String, subtitle: String? = nil, titleLines: Int = 1, detail: String? = nil, mood: Color? = nil,
-         isPlaying: Bool = false, isBusy: Bool = false, onPlay: (() -> Void)? = nil, onTap: @escaping () -> Void,
+         isAudible: Bool = false, isBusy: Bool = false, onPlay: (() -> Void)? = nil, onTap: @escaping () -> Void,
          openID: String? = nil,
          @ViewBuilder artwork: @escaping () -> Artwork) {
         self.init(title: title, subtitle: subtitle, titleLines: titleLines, detail: detail, mood: mood,
-                  isPlaying: isPlaying, isBusy: isBusy, onPlay: onPlay, onTap: onTap, openID: openID,
+                  isAudible: isAudible, isBusy: isBusy, onPlay: onPlay, onTap: onTap, openID: openID,
                   artwork: artwork, accessory: { EmptyView() })
     }
 }

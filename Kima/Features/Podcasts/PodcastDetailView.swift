@@ -124,7 +124,7 @@ struct PodcastDetailView: View {
                             ForEach(continueEps.prefix(4)) { ep in
                                 EpisodeRowView(
                                     episode: ep,
-                                    isPlaying: ep.id == audibleEpisodeId,
+                                    isAudible: ep.id == audibleEpisodeId,
                                     onPlay: { playOrToggle(ep, podcast: podcast, queue: sortedEps) },
                                     onMarkComplete: { Task { await vm.markEpisodeComplete(episode: ep, client: env.client) } },
                                     onDeleteProgress: { Task { await vm.deleteEpisodeProgress(episode: ep, client: env.client) } }
@@ -135,7 +135,7 @@ struct PodcastDetailView: View {
                         .padding(.bottom, KimaSpacing.xs)
                     }
 
-                    episodeListSection(podcast: podcast, episodes: sortedEps, playingId: audibleEpisodeId)
+                    episodeListSection(podcast: podcast, episodes: sortedEps, audibleEpisodeId: audibleEpisodeId)
 
                     if let desc = podcast.description, !desc.strippingHTML.isEmpty {
                         AboutSection(text: desc.strippingHTML)
@@ -178,7 +178,7 @@ struct PodcastDetailView: View {
             // The tap hands the show question and the play-latest action to the controller's one
             // dispatch (ADR 0001) — resuming picks up where it stopped, never starts over from zero.
             let showIsAudible = ownsSession && audible
-            KimaHeroPlayButton(isPlaying: showIsAudible, label: showIsAudible ? "pause" : (ownsSession ? "resume" : "play latest episode")) {
+            KimaHeroPlayButton(isAudible: showIsAudible, label: showIsAudible ? "pause" : (ownsSession ? "resume" : "play latest episode")) {
                 player.handleHeroTap(podcastId: podcast.id) {
                     if let ep = vm.playLatestEpisode() {
                         player.playPodcastEpisode(ep, podcast: podcast, queue: episodes, client: env.client)

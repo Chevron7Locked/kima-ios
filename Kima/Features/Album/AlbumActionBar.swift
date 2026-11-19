@@ -61,7 +61,7 @@ struct AlbumActionBarView: View {
 
     // Play shows Pause when THIS album's sound plays. The view's one amber control: a flat disc.
     private var playPauseButton: some View {
-        KimaHeroPlayButton(isPlaying: albumIsAudible) {
+        KimaHeroPlayButton(isAudible: albumIsAudible) {
             // The glyph keys on audible; the tap hands the membership rule and the tracks to the
             // controller's one dispatch (ADR 0001): pause/resume while this album holds the
             // player, start fresh only when it doesn't.

@@ -156,7 +156,7 @@ struct PlaylistDetailView: View {
             if !items.isEmpty {
                 let tracks = vm.tracks(from: items)
                 let trackIds = Set(tracks.map(\.id))
-                KimaHeroPlayButton(isPlaying: player.isAudible(trackIds: trackIds), label: "play all") {
+                KimaHeroPlayButton(isAudible: player.isAudible(trackIds: trackIds), label: "play all") {
                     player.handleHeroTap(trackIds: trackIds, tracks: tracks)
                 }
                 .accessibilityIdentifier("playlist-play-all")   // leaf button — UITest: play-all → artist hydration

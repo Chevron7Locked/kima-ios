@@ -10,7 +10,8 @@ struct SharedTrackBody: View {
     let dismiss: DismissAction
 
     private var coverId: String? { track.album?.effectiveCoverId }
-    private var isPlaying: Bool { vm.currentTrackId == track.id && vm.isPlaying }
+    /// The lane's own audible answer: this track is what the share player has sound from.
+    private var isAudible: Bool { vm.currentTrackId == track.id && vm.isPlaying }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -56,7 +57,7 @@ struct SharedTrackBody: View {
             .padding(.horizontal, KimaSpacing.xxl)
 
             // Play / pause
-            KimaHeroPlayButton(isPlaying: isPlaying) {
+            KimaHeroPlayButton(isAudible: isAudible) {
                 vm.togglePlayPause(trackId: track.id)
             }
             .padding(.top, KimaSpacing.xl)

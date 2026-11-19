@@ -11,8 +11,9 @@ struct SectionListView: View {
     /// position, when this book is the one loaded in the player. Nil hides the highlight
     /// (book not loaded, or not yet resolved).
     var currentIndex: Int? = nil
-    /// True when the book is actively playing, vs. loaded-but-paused at `currentIndex`.
-    var isPlaying: Bool = false
+    /// This book is what main playback has sound from (engine truth, ADR 0001),
+    /// vs. loaded-but-paused at `currentIndex`.
+    var isAudible: Bool = false
     let onSelect: (AudiobookSection) -> Void
 
     @Environment(AppEnvironment.self) private var env
@@ -38,7 +39,7 @@ struct SectionListView: View {
                 // Index slot — waveform icon when this chapter is actively playing, otherwise
                 // the setlist-style number. Only accent-colored when it's the current chapter.
                 Group {
-                    if isCurrent && isPlaying {
+                    if isCurrent && isAudible {
                         Image(systemName: "waveform")
                             .font(.system(size: 13, weight: .medium))
                     } else {

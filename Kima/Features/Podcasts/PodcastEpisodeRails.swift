@@ -39,7 +39,7 @@ struct PodcastEpisodeRails: View {
                     // What is left or when it came out goes first: a long show name truncates after it.
                     subtitle: "\(detail(item)) · \(item.podcast.title)",
                     titleLines: 2,
-                    isPlaying: isAudible(item.episode),
+                    isAudible: isAudible(item.episode),
                     onPlay: { play(item) },
                     onTap: { onOpenShow(item.podcast.id) }
                 ) {

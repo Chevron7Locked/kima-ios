@@ -22,7 +22,6 @@ extension PlaybackController {
     /// Mirrors `engine.isPlaying`. SwiftUI observation tracks through to the engine.
     var isPlaying: Bool        { engine.isPlaying }
     var engineStatus: EngineStatus { engine.status }
-    var isBuffering: Bool      { engine.isBuffering }
     var audioError: String?    { engine.audioError }
     /// Play was asked for and no audio has come yet (loading or buffering); a tap now pauses.
     var isWaitingForAudio: Bool { engine.isWaitingForAudio }

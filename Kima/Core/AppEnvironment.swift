@@ -39,11 +39,6 @@ final class AppEnvironment {
     /// so all tabs and detail views share the same player state.
     let player: PlaybackController
 
-    /// Cross-device playback-state sync coordinator. Owns the 1-second debounced
-    /// save and 30-second poll loops. Wired to `player.syncHook` so queue/index/shuffle
-    /// mutations auto-schedule a server save without the player knowing about networking.
-    let sync: PlaybackSyncCoordinator
-
     /// The session's stream-ticket module (ticket 13): mints, caches to half-life, keeps warm
     /// ahead of taps, drops on rotation — the player paths ask it for playable URLs. Built inert;
     /// `bootstrap` opens and closes its lifecycle with the session.
@@ -154,7 +149,6 @@ final class AppEnvironment {
         self.client = apiClient
         self.player = playbackController
         self.stream = streamSource
-        self.sync = coordinator
         self.events = sseManager
         self.router = NavigationRouter()
         self.whatsNew = WhatsNewGateModel(client: apiClient)

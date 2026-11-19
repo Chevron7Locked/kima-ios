@@ -19,7 +19,6 @@ struct AlbumHeroView: View {
     var topSafeArea: CGFloat = 0
 
     @Environment(AppEnvironment.self) private var env
-    @Environment(PlaybackController.self) private var player
     @Environment(ToastCenter.self) private var toast
 
     @State private var showCoverViewer = false

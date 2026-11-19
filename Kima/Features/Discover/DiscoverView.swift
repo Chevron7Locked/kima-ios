@@ -103,11 +103,14 @@ struct DiscoverView: View {
         return VStack(alignment: .leading, spacing: 0) {
             if let pick {
                 DiscoverFeaturedPick(
-                    track: pick,
-                    displayState: player.displayState(of: pick.id),
-                    onPlay: { handlePlayTrack(id: pick.id, in: playlist) },
-                    onTogglePlay: { player.togglePlayPause() },
-                    onLike: { Task { await vm.toggleLike(track: pick, using: env.client) } }
+                    row: DiscoverRowDispatch(
+                        track: pick,
+                        index: 1,
+                        displayState: player.displayState(of: pick.id),
+                        onPlay: { handlePlayTrack(id: pick.id, in: playlist) },
+                        onTogglePlay: { player.togglePlayPause() },
+                        onLike: { Task { await vm.toggleLike(track: pick, using: env.client) } }
+                    )
                 )
                 .padding(.bottom, featured.isEmpty && tail.isEmpty ? 0 : KimaSpacing.lg)
             }

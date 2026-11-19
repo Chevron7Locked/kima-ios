@@ -60,8 +60,8 @@ final class C2ShareRenderTests: XCTestCase {
         let a = try pick(1, "Music Is Math"), b = try pick(2, "Dawn Chorus", liked: true), c = try pick(3, "Sunshine Recorder")
         let view = ScrollView {
             VStack(spacing: KimaSpacing.md) {
-                DiscoverFeaturedPick(track: a, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {})
-                DiscoverFeaturedPick(track: b, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {})
+                DiscoverFeaturedPick(row: DiscoverRowDispatch(track: a, index: 1, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {}))
+                DiscoverFeaturedPick(row: DiscoverRowDispatch(track: b, index: 1, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {}))
                 DiscoverFeaturedRow(row: DiscoverRowDispatch(track: b, index: 2, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {}))
                 DiscoverFeaturedRow(row: DiscoverRowDispatch(track: c, index: 3, displayState: .none, onPlay: {}, onTogglePlay: {}, onLike: {}))
                 DiscoverCrateRow(row: DiscoverRowDispatch(track: a, index: 4, displayState: .playing, onPlay: {}, onTogglePlay: {}, onLike: {}))

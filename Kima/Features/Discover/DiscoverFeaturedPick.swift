@@ -6,23 +6,12 @@ import SwiftUI
 // is active, the title and play glyph use `env.accent.color`.
 
 struct DiscoverFeaturedPick: View {
-    let track: DiscoverTrack
-    /// How this track's control reads (engine truth scoped by identity, ADR 0001) — the one
-    /// derived value behind the glyph, the tint, and what a tap honors.
-    let displayState: RowDisplayState
-    let onPlay: () -> Void
-    let onTogglePlay: () -> Void
-    let onLike: () -> Void
+    /// The shared row shape (inputs + the one dispatch decision, ADR 0001) — the featured
+    /// hero rides `DiscoverRowDispatch` like the rows below it, not its own copy.
+    let row: DiscoverRowDispatch
 
     @Environment(AppEnvironment.self) private var env
     @State private var palette: CoverArtPalette?
-
-    /// This track holds the playback session — the dispatch question (ADR 0001).
-    private var isCurrent: Bool { displayState != .none }
-
-    private func handleTap() {
-        if isCurrent { onTogglePlay() } else { onPlay() }
-    }
 
     private var glowTop: Color { palette?.vibrant     ?? KimaColor.ambient }
     private var glowLow: Color { palette?.darkVibrant ?? KimaColor.surfaceRaised }
@@ -40,8 +29,8 @@ struct DiscoverFeaturedPick: View {
         }
         .kimaPaletteWashCard(tint: glowTop)
         .padding(.horizontal, KimaSpacing.lg)
-        .task(id: track.coverUrl) {
-            palette = await CoverArtColor.palette(coverId: track.coverUrl, server: env.server)
+        .task(id: row.track.coverUrl) {
+            palette = await CoverArtColor.palette(coverId: row.track.coverUrl, server: env.server)
         }
     }
 
@@ -51,19 +40,19 @@ struct DiscoverFeaturedPick: View {
         HStack(spacing: KimaSpacing.sm) {
             KimaKicker(title: "this week's pick")
             Spacer(minLength: 0)
-            DiscoverTierIndicator(tier: track.tier)
+            DiscoverTierIndicator(tier: row.track.tier)
         }
     }
 
     // MARK: Cover + glow
 
     private var cover: some View {
-        Button(action: handleTap) {
+        Button(action: row.handleTap) {
             CoverArtImage(
-                coverId: track.coverUrl,
+                coverId: row.track.coverUrl,
                 size: 512,
                 cornerRadius: KimaRadius.image,
-                accessibilityLabel: "\(track.title) — \(track.artist)"
+                accessibilityLabel: "\(row.track.title) — \(row.track.artist)"
             )
             .frame(width: 112, height: 112)
             // The tile sits under the glow and shadow: a drop shadow reads only the opaque
@@ -88,8 +77,8 @@ struct DiscoverFeaturedPick: View {
     private var playGlyph: some View {
         ZStack {
             Circle().fill(KimaColor.discGlass).frame(width: 34, height: 34)
-            DiscoverPlayGlyph(isPlaying: displayState == .playing,
-                              playColor: isCurrent ? nil : KimaColor.textPrimary, playWeight: .semibold)
+            DiscoverPlayGlyph(isPlaying: row.displayState == .playing,
+                              playColor: row.isCurrent ? nil : KimaColor.textPrimary, playWeight: .semibold)
         }
         .allowsHitTesting(false)
     }
@@ -98,18 +87,18 @@ struct DiscoverFeaturedPick: View {
 
     private var meta: some View {
         VStack(alignment: .leading, spacing: KimaSpacing.sm) {
-            Text(track.title.lowercased())
+            Text(row.track.title.lowercased())
                 .font(KimaType.headline)
-                .foregroundStyle(isCurrent ? env.accent.color : KimaColor.textPrimary)
+                .foregroundStyle(row.isCurrent ? env.accent.color : KimaColor.textPrimary)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("\(track.artist.lowercased()) · \(track.album.lowercased())")
+            Text("\(row.track.artist.lowercased()) · \(row.track.album.lowercased())")
                 .font(KimaType.caption)
                 .foregroundStyle(KimaColor.textMuted)
                 .lineLimit(2)
 
-            Text(track.duration.durationFormatted)
+            Text(row.track.duration.durationFormatted)
                 .font(KimaType.meta)
                 .monospacedDigit()
                 .foregroundStyle(KimaColor.textMuted)
@@ -117,18 +106,18 @@ struct DiscoverFeaturedPick: View {
             Spacer(minLength: KimaSpacing.sm)
 
             HStack(spacing: KimaSpacing.md) {
-                let audible = displayState == .playing
+                let audible = row.displayState == .playing
                 KimaPrimaryButton(title: audible ? "pause" : "play",
                                   systemImage: audible ? "pause.fill" : "play.fill",
-                                  size: .compact, action: handleTap)
+                                  size: .compact, action: row.handleTap)
 
-                Button(action: onLike) {
-                    Image(systemName: track.isLiked ? "heart.fill" : "heart").symbolEffect(.bounce, value: track.isLiked)
+                Button(action: row.onLike) {
+                    Image(systemName: row.track.isLiked ? "heart.fill" : "heart").symbolEffect(.bounce, value: row.track.isLiked)
                         .font(.system(size: 17))
-                        .foregroundStyle(track.isLiked ? KimaColor.textPrimary : KimaColor.textMuted)
+                        .foregroundStyle(row.track.isLiked ? KimaColor.textPrimary : KimaColor.textMuted)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(track.isLiked ? "unlike" : "like")
+                .accessibilityLabel(row.track.isLiked ? "unlike" : "like")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

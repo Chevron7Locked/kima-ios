@@ -141,6 +141,13 @@ extension PlaybackController {
         return false
     }
 
+    /// Whether this show is what main playback has sound from — the subscribed detail's hero
+    /// question (ADR 0001): the light is the dispatch answer conjoined with engine truth, so
+    /// display and tap agree by construction; pages never hand-AND the two answers.
+    func isAudible(podcastId: String) -> Bool {
+        isAudibleNow && ownsPodcastSession(podcastId)
+    }
+
     /// Whether this show's sample holds the playback session — dispatch for the sample row
     /// (resume vs start fresh), never a light (ADR 0001). Membership keys on the id only
     /// `playPodcastSample` mints, self-authenticating: a real episode of the same show never

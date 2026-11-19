@@ -89,7 +89,6 @@ struct PodcastDetailView: View {
     private func subscribedBody(_ podcast: Podcast) -> some View {
         // Display keys on audible (engine truth); identity only scopes which item and what a tap does
         // (ADR 0001 — born from build 20). The controller answers; the page does not recompute.
-        let audible = player.isAudibleNow
         let audibleEpisodeId = player.audiblePodcastEpisodeId
         let ownsSession = player.ownsPodcastSession(podcast.id)
         let continueEps = vm.continueListening()
@@ -111,7 +110,7 @@ struct PodcastDetailView: View {
 
                     PodcastCategoryPills(categories: podcast.categories ?? []) { chartCategoryId = $0 }
 
-                    subscribedActionBar(podcast, ownsSession: ownsSession, audible: audible, episodes: sortedEps)
+                    subscribedActionBar(podcast, ownsSession: ownsSession, episodes: sortedEps)
                         .padding(.horizontal, KimaSpacing.lg)
                         .padding(.top, KimaSpacing.xl)
 
@@ -172,12 +171,13 @@ struct PodcastDetailView: View {
     // MARK: - Action bar (subscribed)
 
     @ViewBuilder
-    private func subscribedActionBar(_ podcast: Podcast, ownsSession: Bool, audible: Bool, episodes: [Episode]) -> some View {
+    private func subscribedActionBar(_ podcast: Podcast, ownsSession: Bool, episodes: [Episode]) -> some View {
         HStack(spacing: KimaSpacing.md) {
             // Play Latest / Pause / Resume: pause shows only while this show's session actually runs.
-            // The tap hands the show question and the play-latest action to the controller's one
-            // dispatch (ADR 0001) — resuming picks up where it stopped, never starts over from zero.
-            let showIsAudible = ownsSession && audible
+            // The light is the module's one audible answer (ADR 0001 — never a page-local AND);
+            // the tap hands the show question and the play-latest action to the controller's one
+            // dispatch — resuming picks up where it stopped, never starts over from zero.
+            let showIsAudible = player.isAudible(podcastId: podcast.id)
             KimaHeroPlayButton(isAudible: showIsAudible, label: showIsAudible ? "pause" : (ownsSession ? "resume" : "play latest episode")) {
                 player.handleHeroTap(podcastId: podcast.id) {
                     if let ep = vm.playLatestEpisode() {

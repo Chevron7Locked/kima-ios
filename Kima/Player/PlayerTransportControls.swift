@@ -61,34 +61,18 @@ struct PlayerTransportControls: View {
 
             // Previous — greyed out at the top of a non-repeating queue, where the app
             // has nowhere to go back to. Un-greys 3 s in, when it means "restart this track".
-            Button { player.previous() } label: {
-                Image(systemName: "backward.fill")
-                    .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(KimaColor.textPrimary)
-                    .kimaDisabled()
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!player.canGoPrevious)
-            .accessibilityLabel("previous")
+            transportSkipButton(systemName: "backward.fill",
+                                enabled: player.canGoPrevious,
+                                label: "previous", action: player.previous)
 
             // Play / Pause
             playPauseButton
 
             // Next — greyed out on the last track of a non-repeating queue, where the app
             // has nowhere to go forward to. Any repeat mode gives it a wrap, so it lights up.
-            Button { player.next() } label: {
-                Image(systemName: "forward.fill")
-                    .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(KimaColor.textPrimary)
-                    .kimaDisabled()
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(!player.canGoNext)
-            .accessibilityLabel("next")
+            transportSkipButton(systemName: "forward.fill",
+                                enabled: player.canGoNext,
+                                label: "next", action: player.next)
 
             // Repeat
             Button { player.cycleRepeat() } label: {
@@ -103,6 +87,23 @@ struct PlayerTransportControls: View {
             .buttonStyle(.plain)
             .accessibilityLabel("repeat: \(player.repeatMode.rawValue)")
         }
+    }
+
+    /// The transport's prev/next hunk, spelled once: a 26pt glyph across a 48pt column,
+    /// greyed by `enabled` (the gating prose lives at each call site).
+    private func transportSkipButton(systemName: String, enabled: Bool, label: String,
+                                     action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 26, weight: .medium))
+                .foregroundStyle(KimaColor.textPrimary)
+                .kimaDisabled()
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(label)
     }
 
     /// Audiobook transport: [spacer] · Play/Pause · [spacer]

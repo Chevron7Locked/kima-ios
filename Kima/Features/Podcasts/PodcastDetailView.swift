@@ -17,6 +17,8 @@ struct PodcastDetailView: View {
     @State private var similarDetailId: String?
     /// A category pill's chart (Apple category id).
     @State private var chartCategoryId: Int?
+    /// The action bar's remove button confirming (the foot row confirms inside KimaDestructiveRow).
+    @State private var confirmingRemove = false
     @State var episodeFilter: PodcastEpisodeFilter = .all  // internal: +EpisodeList extension file
 
     init(id: String) {
@@ -186,30 +188,55 @@ struct PodcastDetailView: View {
                 }
             }
             Spacer(minLength: 0)
+            // Web parity: the bar's trailing danger control (PodcastActionBar's "remove"). The foot
+            // row keeps its own copy of the confirm — one action (runRemove), copy constants below.
+            KimaIconDiscButton(systemName: "trash", glyphSize: 15, label: "remove podcast", tint: KimaColor.danger) {
+                confirmingRemove = true
+            }
+            .accessibilityIdentifier("podcast-remove")
+            .confirmationDialog(Self.removeTitle, isPresented: $confirmingRemove, titleVisibility: .visible) {
+                Button(Self.removeWord, role: .destructive) { runRemove() }
+                Button(Self.keepWord, role: .cancel) {}
+            } message: {
+                Text(Self.removeMessage)
+            }
         }
     }
 
-    // MARK: - Unsubscribe (destructive — its own group at the foot of the page)
+    // MARK: - Remove (destructive — the bar's trailing disc and this foot row, one action)
+
+    /// Web's PodcastActionBar copy, verbatim (lowercased): the verb is "remove" (web follows with
+    /// "follow"/"remove" — GLOSSARY: "not-followed show"). One version of the strings.
+    static let removeTitle = "remove this podcast?"
+    static let removeMessage = "you stop following it, and your place in its episodes and your downloads of them go too."
+    static let removeWord = "remove"
+    static let keepWord = "keep it"
 
     private var unsubscribeRow: some View {
         KimaDestructiveRow(
-            label: "unsubscribe",
-            confirmTitle: "unsubscribe?",
-            confirmMessage: "this removes all episodes and your listening progress. this cannot be undone.",
-            confirmButton: "unsubscribe"
-        ) {
-            Task {
-                do {
-                    try await vm.unsubscribe(client: env.client)
-                    toastCenter.show("unsubscribed", style: .success)
-                    NotificationCenter.default.post(name: .kimaPodcastUnsubscribed, object: vm.activeId)
-                    dismiss()
-                } catch {
-                    toastCenter.show("couldn't unsubscribe", style: .error)
-                }
+            label: "remove podcast",
+            systemImage: "trash",
+            confirmTitle: Self.removeTitle,
+            confirmMessage: Self.removeMessage,
+            confirmButton: Self.removeWord,
+            cancelButton: Self.keepWord,
+            action: runRemove
+        )
+        .padding(.bottom, KimaSpacing.xl)
+    }
+
+    /// The one remove flow: DELETE, toast, library refresh notification, pop. Both entry points call it.
+    private func runRemove() {
+        Task {
+            do {
+                try await vm.unsubscribe(client: env.client)
+                toastCenter.show("removed", style: .success)
+                NotificationCenter.default.post(name: .kimaPodcastUnsubscribed, object: vm.activeId)
+                dismiss()
+            } catch {
+                toastCenter.show("couldn't remove podcast", style: .error)
             }
         }
-        .padding(.bottom, KimaSpacing.xl)
     }
 
     // MARK: - Play helper

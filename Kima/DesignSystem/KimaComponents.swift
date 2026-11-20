@@ -30,6 +30,8 @@ struct KimaIconDiscButton: View {
     var isLoading = false
     /// A toggle that is on: amber glyph and ring (amber is the only "on" ring).
     var isOn = false
+    /// Glyph colour for the off state; pass `KimaColor.danger` for a destructive control.
+    var tint: Color = KimaColor.textSecondary
     let action: () -> Void
 
     var body: some View {
@@ -40,7 +42,7 @@ struct KimaIconDiscButton: View {
                 } else {
                     Image(systemName: systemName)
                         .font(.system(size: glyphSize, weight: .medium))
-                        .foregroundStyle(isOn ? KimaColor.brand : KimaColor.textSecondary)
+                        .foregroundStyle(isOn ? KimaColor.brand : tint)
                 }
             }
             .frame(width: 36, height: 36)

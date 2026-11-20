@@ -59,7 +59,7 @@ struct DeviceLinker {
             // A dropped connection while waiting leaves the code usable, so the same code can be sent again.
             var canRetry = false
             if case .network = api { canRetry = true }
-            return .failed(message: api.errorDescription ?? "pairing failed.", canRetry: canRetry)
+            return .failed(message: api.connectDescription ?? "pairing failed.", canRetry: canRetry)
         }
         switch status {
         case 403: return .failed(message: "the link was denied.", canRetry: false)

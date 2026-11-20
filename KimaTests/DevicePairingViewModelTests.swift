@@ -76,6 +76,13 @@ final class DevicePairingViewModelTests: KeychainLoginTestCase {
                                        canRetry: true))
     }
 
+    /// Pairing is a connect screen: the scanned address is the likely culprit, so name it (GitHub #1).
+    func testUnknownScannedNameSaysSo() {
+        let result = DeviceLinker.failure(for: APIError.network(URLError(.cannotFindHost)))
+        XCTAssertEqual(result, .failed(message: "couldn't find a server with that name. check the address.",
+                                       canRetry: true))
+    }
+
     func testSuccessEndsInTheLinkedStep() async {
         respond(200, #"{"success":true,"apiKey":"key-4"}"#)
         let vm = makeVM()

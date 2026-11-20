@@ -18,16 +18,14 @@
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- Cleartext is allowed only for the host shapes Kima's own connect flow produces over
-		     plain http: IPv4 and IPv6 literals, *.local, and single-label names (see
-		     ConnectViewModel.isLocalHost). Those are exactly the four categories Apple documents
-		     NSAllowsLocalNetworking as covering (unqualified domains, .local domains, IPv4/IPv6
-		     addresses), so nothing the app supports by default loses connectivity. Apple ignores
-		     NSAllowsArbitraryLoads once a narrower key is present, so it is stated false here
-		     rather than dropped: public hosts get ATS's normal TLS requirements. -->
+		<!-- Kima talks to a server the person typed in, over whatever their server speaks. Plain
+		     http is allowed to any host: ConnectViewModel asks the person to confirm a public http
+		     address before connecting, and NetworkTrust decides which hosts are private enough to
+		     skip that ask (.ts.net, .lan, IPs, ...). NSAllowsLocalNetworking must stay absent: when
+		     it is present iOS ignores NSAllowsArbitraryLoads, and every dotted http name (a
+		     Tailscale name, my-server.xyz) was blocked before any request was sent, even after the
+		     person had confirmed it (GitHub #1). -->
 		<key>NSAllowsArbitraryLoads</key>
-		<false/>
-		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>

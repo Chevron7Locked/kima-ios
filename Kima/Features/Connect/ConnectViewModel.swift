@@ -22,7 +22,16 @@ final class ConnectViewModel {
     /// Set to true by `confirmInsecureConnection()` so the next `check()` call skips the gate.
     private var insecureConfirmed: Bool = false
 
+    private let makeClient: APIClientMaker
+
+    init(makeClient: @escaping APIClientMaker = defaultAPIClientMaker) {
+        self.makeClient = makeClient
+    }
+
     var canSubmit: Bool { !normalizedURL().isEmpty && phase != .checking }
+
+    /// The person typed a scheme; otherwise `normalizedURL()` picks one, and a wrong pick is ours to explain.
+    private var schemeTyped: Bool { urlText.contains("://") }
 
     /// Accept "kima.example.com" or a full URL. With no scheme, pick one by host shape: IPv4/IPv6 literals,
     /// *.local and single-label names get http://, dotted public domains get https://.
@@ -30,7 +39,7 @@ final class ConnectViewModel {
     private func normalizedURL() -> String {
         let text = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return "" }
-        if text.contains("://") { return text }   // explicit scheme → leave untouched
+        if schemeTyped { return text }   // explicit scheme → leave untouched
 
         // No scheme given. Prefix https:// so URLComponents can extract the host, pick http or https by host shape,
         // then re-serialise cleanly. That drops any userinfo (never used; auth is JWT/API-key, and credentials
@@ -80,16 +89,27 @@ final class ConnectViewModel {
         }
         insecureConfirmed = false   // consume — don't carry confirmation across URL changes
         phase = .checking
-        let client = KimaAPIClient(server: KimaServer(baseURL: url))
+        let client = makeClient(KimaServer(baseURL: url), nil)
         do {
             let status = try await client.onboardingStatus()
             resolvedURL = raw
             phase = .found(status, host: host)
         } catch let error as APIError {
-            phase = .failed(error.errorDescription ?? "couldn't connect.")
+            let guessedHTTPS = scheme == "https" && !schemeTyped
+            phase = .failed(guessedHTTPS && Self.isTLSOrNoListener(error)
+                ? "couldn't connect over https. if your server uses plain http, type http:// before the address."
+                : error.connectDescription ?? "couldn't connect.")
         } catch {
             phase = .failed(error.localizedDescription)
         }
+    }
+
+    /// How an http-only server fails on the https the app picked for it: plain text where the TLS
+    /// hello expected an answer (-1200), or nothing listening (-1004). A certificate error means a
+    /// real https server answered, so that keeps the certificate line.
+    private static func isTLSOrNoListener(_ error: APIError) -> Bool {
+        guard case .network(let inner as URLError) = error else { return false }
+        return inner.code == .secureConnectionFailed || inner.code == .cannotConnectToHost
     }
 
     /// Called when the user explicitly accepts the insecure-connection warning.

@@ -74,10 +74,12 @@ struct StubSessionFactory: SessionFactory {
 
 /// A transport that never answers: every request fails at the connection level, no HTTP status,
 /// for the branches that must tell *server unreachable* from any HTTP reply (`APIError.network`).
+/// `failure` picks which transport error (offline by default); a test that changes it restores it.
 final class FailingURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var failure = URLError(.notConnectedToInternet)
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
-    override func startLoading() { client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet)) }
+    override func startLoading() { client?.urlProtocol(self, didFailWithError: Self.failure) }
     override func stopLoading() {}
 }
 

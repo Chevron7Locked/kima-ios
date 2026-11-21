@@ -247,7 +247,7 @@ extension PlaybackController {
         )
 
         let resumeTime = nextEpisode.progress?.currentTime ?? 0
-        loadPodcastEpisode(podcastId: podcastId, episode: nextEpisode, seekTo: resumeTime, autoplay: autoplay)
+        loadPodcastEpisode(podcastId: podcastId, episode: nextEpisode, seekTo: { resumeTime }, autoplay: autoplay)
         nowPlayingHook?()
     }
 }

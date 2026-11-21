@@ -30,7 +30,7 @@ extension PlaybackController {
         lastSavedProgressTime = 0
 
         engine.claimAudioSession(mode: .spokenAudio)
-        loadPodcastEpisode(podcastId: itunesId, episode: episode, seekTo: 0, autoplay: true)
+        loadPodcastEpisode(podcastId: itunesId, episode: episode, seekTo: { 0 }, autoplay: true)
         nowPlayingHook?()
     }
 }

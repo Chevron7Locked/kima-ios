@@ -96,6 +96,19 @@ final class PlaybackRecoveryTests: XCTestCase {
         c.engine.clear()
     }
 
+    func testAnAudiobookFailingAtTheEndOfAFileRestartsAtTheTopOfTheNext() async throws {
+        let c = controller()
+        c.playbackType = .audiobook(book)
+        c.currentLongFormFileIndex = 1
+        c.longFormAPIClient = .stubbed()
+        playingAndStuck(c, at: 100)  // the end of file 1: book time 100 is file 2's top
+        c.engine.giveUpOnStalledItem()
+        let url = try await landed(c)
+        XCTAssertTrue(url?.query?.contains("trackIndex=2") == true)
+        XCTAssertNil(c.engine.pendingSeek, "file 2's top, not file 1's time read against file 2")
+        c.engine.clear()
+    }
+
     func testALoadThatFailsBeforePlayingRestartsWhereItWasAsked() {
         let c = controller()
         c.playbackType = .audiobook(book)
@@ -150,16 +163,38 @@ final class PlaybackRecoveryTests: XCTestCase {
         if case .audiobook = c.playbackType {} else { XCTFail("the book stays loaded") }
     }
 
-    /// Fails a playing track at 42, holds the rebuild's ticket fetch, runs `skip` while it is
+    /// A music queue whose current track plays at 42.
+    private func musicAt42(_ c: PlaybackController) throws {
+        c.apiClient = .stubbed()
+        c.queue = [try Track.fixture("a"), try Track.fixture("b")]
+        playingAndStuck(c, at: 42)
+    }
+
+    /// An episode playing at 600.
+    private func podcastAt600(_ c: PlaybackController) throws {
+        let ep = try Episode.fixture("e1")
+        c.playbackType = .podcastEpisode(podcastId: "p", episode: ep, queue: [ep])
+        c.longFormAPIClient = .stubbed()
+        playingAndStuck(c, at: 600)
+    }
+
+    /// The book's second file (book time 100–200) playing at 30 into the file.
+    private func bookFile2At30(_ c: PlaybackController) throws {
+        c.playbackType = .audiobook(book)
+        c.currentLongFormFileIndex = 2
+        c.longFormAPIClient = .stubbed()
+        playingAndStuck(c, at: 30)
+    }
+
+    /// Fails what `arrange` set playing, holds the rebuild's ticket fetch, runs `skip` while it is
     /// held, then lets the fetch answer and waits for the rebuilt item. The engine is cleared at
     /// teardown.
     private func skipDuringRebuildFetch(
+        _ arrange: (PlaybackController) throws -> Void,
         _ skip: (PlaybackController) async -> Void
     ) async throws -> PlaybackController {
         let c = controller()
         addTeardownBlock { @MainActor in c.engine.clear() }
-        c.apiClient = .stubbed()
-        c.queue = [try Track.fixture("a"), try Track.fixture("b")]
         let asked = expectation(description: "the rebuild asked for a ticket")
         let gate = DispatchSemaphore(value: 0)
         defer { gate.signal() }  // an early exit must not leave the stub's queue blocked
@@ -169,7 +204,7 @@ final class PlaybackRecoveryTests: XCTestCase {
             gate.wait()
             return (200, Data(#"{"ticket":"fresh","expiresIn":3600}"#.utf8))
         }
-        playingAndStuck(c, at: 42)
+        try arrange(c)
         c.engine.giveUpOnStalledItem()
         await fulfillment(of: [asked], timeout: 2)
         XCTAssertEqual(c.engine.status, .error, "the skip lands while the rebuild is still fetching")
@@ -181,22 +216,39 @@ final class PlaybackRecoveryTests: XCTestCase {
     }
 
     func testASkipDuringTheRebuildsTicketFetchIsWhereTheTrackRestarts() async throws {
-        let c = try await skipDuringRebuildFetch { $0.seek(to: 40) }
+        let c = try await skipDuringRebuildFetch(musicAt42) { $0.seek(to: 40) }
         XCTAssertEqual(c.engine.pendingSeek, 40, "last skip wins")
     }
 
     func testASkipToTheTopDuringTheRebuildsTicketFetchRestartsAtTheTop() async throws {
-        let c = try await skipDuringRebuildFetch { $0.seek(to: 0) }
+        let c = try await skipDuringRebuildFetch(musicAt42) { $0.seek(to: 0) }
         XCTAssertNil(c.engine.pendingSeek, "the top, not the position the track failed at")
     }
 
     func testABackSkipPastTheTopDuringTheRebuildsTicketFetchRestartsAtTheTop() async throws {
-        let c = try await skipDuringRebuildFetch { c in
+        let c = try await skipDuringRebuildFetch(musicAt42) { c in
             c.skip(by: -60)  // the -30 s button twice: 42 back to the top
             await self.waitUntil { c.skipTask == nil }
             XCTAssertNil(c.skipTask, "the debounced skip has landed")
         }
         XCTAssertNil(c.engine.pendingSeek, "the top, not the position the track failed at")
+    }
+
+    func testAPodcastSkipDuringTheRebuildsTicketFetchIsWhereTheEpisodeRestarts() async throws {
+        let c = try await skipDuringRebuildFetch(podcastAt600) { $0.seek(to: 300) }
+        XCTAssertEqual(c.engine.pendingSeek, 300, "last skip wins")
+    }
+
+    func testAPodcastSkipToTheTopDuringTheRebuildsTicketFetchRestartsAtTheTop() async throws {
+        let c = try await skipDuringRebuildFetch(podcastAt600) { $0.seek(to: 0) }
+        XCTAssertNil(c.engine.pendingSeek, "the top, not the position the episode failed at")
+    }
+
+    func testAnAudiobookSkipInTheSameFileDuringTheRebuildsTicketFetchIsWhereTheBookRestarts() async throws {
+        let c = try await skipDuringRebuildFetch(bookFile2At30) { $0.seek(to: 150) }  // file 2, 50 in
+        let url = (c.engine.player.currentItem?.asset as? AVURLAsset)?.url
+        XCTAssertTrue(url?.query?.contains("trackIndex=2") == true, "the same file")
+        XCTAssertEqual(c.engine.pendingSeek, 50, "last skip wins")
     }
 
     func testNoTicketBecauseTheSessionEndedSaysSo() async throws {

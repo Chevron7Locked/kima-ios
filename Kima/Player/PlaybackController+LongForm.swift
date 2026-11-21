@@ -31,7 +31,7 @@ extension PlaybackController {
         lastSavedProgressTime = resumeTime
 
         engine.claimAudioSession(mode: .spokenAudio)
-        loadBookPosition(bookTime: resumeTime, session: session, autoplay: true)
+        loadBookPosition(bookTime: { resumeTime }, session: session, autoplay: true)
 
         startProgressTimer()
         startResignObserver()
@@ -63,7 +63,7 @@ extension PlaybackController {
         lastSavedProgressTime = resumeTime
 
         engine.claimAudioSession(mode: .spokenAudio)
-        loadPodcastEpisode(podcastId: podcast.id, episode: episode, seekTo: resumeTime, autoplay: true)
+        loadPodcastEpisode(podcastId: podcast.id, episode: episode, seekTo: { resumeTime }, autoplay: true)
 
         startProgressTimer()
         startResignObserver()

@@ -44,26 +44,34 @@ extension PlaybackController {
 
     // MARK: - Loaders
 
-    /// `prepare` runs before the playable-URL ask (see `loadStream`).
-    func loadBookPosition(bookTime: Double, session: BookSession, autoplay: Bool,
+    /// `prepare` runs before the playable-URL ask (see `loadStream`). The file is chosen from
+    /// `bookTime()` at the call. When that is the file already loaded, `bookTime()` is read again
+    /// when the load is issued, so a skip within the file made during the ticket fetch is where it
+    /// starts (a skip to another file claims its own load). When the file changes, the start is
+    /// fixed at the call: `recoveryPoint` reads the engine's time against the current file, and the
+    /// engine's time still belongs to the old one.
+    func loadBookPosition(bookTime: @escaping @MainActor () -> Double, session: BookSession, autoplay: Bool,
                           prepare: (@MainActor () async -> Void)? = nil) {
-        let (file, fileTime) = session.locate(bookTime: bookTime)
+        let (file, fileTime) = session.locate(bookTime: bookTime())
+        let seekTo: @MainActor () -> Double? = file.index == currentLongFormFileIndex
+            ? { session.fileTime(bookTime: bookTime(), in: file) }
+            : { fileTime }
         currentLongFormFileIndex = file.index  // track in-flight file before the async hop
         let posClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-        loadStream(claim: posClaim, autoplay: autoplay,
-                   seekTo: { fileTime }, prepare: prepare) { source in
+        loadStream(claim: posClaim, autoplay: autoplay, seekTo: seekTo, prepare: prepare) { source in
             await source.playableURL(bookId: session.bookId, index: file.index)
         }
     }
 
+    /// `seekTo` is read when the load is issued (see `loadStream`).
     func loadPodcastEpisode(
-        podcastId: String, episode: Episode, seekTo: Double, autoplay: Bool,
+        podcastId: String, episode: Episode, seekTo: @escaping @MainActor () -> Double?, autoplay: Bool,
         prepare: (@MainActor () async -> Void)? = nil
     ) {
         let sampleItunesId = podcastSampleItunesId  // read before the async hop: a sample streams its snippet
         let epClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
         loadStream(claim: epClaim, autoplay: autoplay,
-                   seekTo: { seekTo }, prepare: prepare) { source in
+                   seekTo: seekTo, prepare: prepare) { source in
             if let sampleItunesId {
                 return await source.playableURL(sampleItunesId: sampleItunesId)
             }
@@ -89,16 +97,17 @@ extension PlaybackController {
         nowPlayingHook?()
     }
 
-    /// Rebuild the current audiobook/podcast stream at `bookTime`. `autoplay` respects the play
-    /// intent at the moment of failure — a PAUSED long-form item whose connection dropped must
-    /// come back paused at position, not auto-resume.
-    func rebuildLongFormStream(at bookTime: Double, autoplay: Bool = true,
+    /// Rebuild the current audiobook/podcast stream at `position()`: seconds into the episode, or
+    /// into the whole book. It is read when the load is issued (an audiobook's file is chosen at the
+    /// call; see `loadBookPosition`). `autoplay` respects the play intent at the moment of failure —
+    /// a PAUSED long-form item whose connection dropped must come back paused at position, not auto-resume.
+    func rebuildLongFormStream(at position: @escaping @MainActor () -> Double, autoplay: Bool = true,
                                prepare: (@MainActor () async -> Void)? = nil) {
         switch playbackType {
         case .audiobook(let session):
-            loadBookPosition(bookTime: bookTime, session: session, autoplay: autoplay, prepare: prepare)
+            loadBookPosition(bookTime: position, session: session, autoplay: autoplay, prepare: prepare)
         case .podcastEpisode(let podcastId, let episode, _):
-            loadPodcastEpisode(podcastId: podcastId, episode: episode, seekTo: bookTime,
+            loadPodcastEpisode(podcastId: podcastId, episode: episode, seekTo: position,
                                autoplay: autoplay, prepare: prepare)
         case .track:
             break

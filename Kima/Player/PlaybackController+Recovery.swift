@@ -142,8 +142,8 @@ extension PlaybackController {
     /// Reload the current item at `recoveryPoint` with a fresh stream ticket: a clock-valid ticket
     /// the server rejects would fail the rebuild too. No ticket or URL ends in loadStream's terminal
     /// error with the queue kept; a repeat failure comes back through `handleFailed`, and reaching
-    /// .readyToPlay resets the budget. A music track reads `recoveryPoint` when the load is issued,
-    /// so a skip made during the fetch wins; long-form reads it now (ticket 26).
+    /// .readyToPlay resets the budget. `recoveryPoint` is read when the load is issued, so a skip
+    /// made during the fetch wins. An audiobook's file is chosen at the call (see `loadBookPosition`).
     func rebuildCurrentItem(autoplay: Bool) {
         // Drop the cached ticket first: a clock-valid ticket the server just rejected would fail the rebuild too.
         let prepare: @MainActor () async -> Void = { [weak self] in self?.streamSource?.dropTicket() }
@@ -157,7 +157,7 @@ extension PlaybackController {
                 await source.playableURL(trackId: track.id)
             }
         case .audiobook, .podcastEpisode:
-            rebuildLongFormStream(at: recoveryPoint, autoplay: autoplay, prepare: prepare)
+            rebuildLongFormStream(at: { self.recoveryPoint }, autoplay: autoplay, prepare: prepare)
         }
     }
 

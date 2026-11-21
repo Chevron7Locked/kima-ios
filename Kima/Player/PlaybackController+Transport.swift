@@ -27,7 +27,8 @@ extension PlaybackController {
     /// is not gated on `!queue.isEmpty` — it routes through its own rebuild instead.
     private func reloadCurrentItemAtPosition() {
         if playbackType.isLongForm {
-            rebuildLongFormStream(at: max(0, lastSavedProgressTime))
+            let resumeAt = max(0, lastSavedProgressTime)
+            rebuildLongFormStream(at: { resumeAt })
         } else if !queue.isEmpty {
             loadCurrentTrack(autoplay: true, seekTo: lastKnownMusicPosition)
         } else {

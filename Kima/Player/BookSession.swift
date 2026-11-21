@@ -21,8 +21,13 @@ struct BookSession: Sendable {
             guard f.startOffset <= clamped else { break }
             best = f
         }
-        let fileTime = max(0, min(clamped - best.startOffset, best.duration))
-        return (best, fileTime)
+        return (best, fileTime(bookTime: bookTime, in: best))
+    }
+
+    /// `bookTime` as a time within `file`, kept inside the file. Clamps `bookTime` to [0, totalDuration].
+    func fileTime(bookTime: Double, in file: AudiobookTrack) -> Double {
+        let clamped = max(0, min(bookTime, totalDuration))
+        return max(0, min(clamped - file.startOffset, file.duration))
     }
 
     /// True when `file` is the last file in this session.

@@ -71,4 +71,9 @@ enum EngineStatus: Sendable, Equatable {
     case blocked
     /// `AVPlayerItem.status == .failed`. `PlaybackEngine.audioError` carries the message.
     case error
+
+    /// On its way to sound or making it: what a pause or a call stops.
+    var isRunning: Bool { self == .loading || self == .buffering || self == .playing }
+    /// Stopped by the user (`.paused`) or the OS (`.blocked`): only a play starts it.
+    var isPausedOrBlocked: Bool { self == .paused || self == .blocked }
 }

@@ -26,6 +26,11 @@ final class ArtistDetailPlayAllTests: XCTestCase {
             #"{"id":"art1","name":"ABBA","albums":[{"id":"alb1","title":"Arrival","year":1976,"owned":\#(flag)}]}"#.utf8))
     }
 
+    /// The host this class's own requests go to: another test's player still minting a stream
+    /// ticket on stub.test can't land in the counts (ticket 21).
+    private static let host = URL(string: "https://play-all.test")!
+    private var requests: [URLRequest] { StubURLProtocol.requests.filter { $0.url?.host == Self.host.host } }
+
     private func makePlayback() -> PlaybackController {
         PlaybackController(server: KimaServer(baseURL: URL(string: "https://stub.test")!))
     }
@@ -37,11 +42,11 @@ final class ArtistDetailPlayAllTests: XCTestCase {
         let player = makePlayback()
 
         try await vm.playAll(artist: artist(withOwnedAlbum: true),
-                            client: KimaAPIClient.stubbed(), player: player, toast: ToastCenter())
+                            client: KimaAPIClient.stubbed(baseURL: Self.host), player: player, toast: ToastCenter())
 
-        XCTAssertEqual(StubURLProtocol.requests.count, 1,
+        XCTAssertEqual(requests.count, 1,
                        "Play All made more than one request to build the artist's queue")
-        XCTAssertEqual(StubURLProtocol.requests.first?.url?.path, "/api/library/artists/art1/play-tracks",
+        XCTAssertEqual(requests.first?.url?.path, "/api/library/artists/art1/play-tracks",
                        "Play All did not use the lean play-tracks endpoint")
         XCTAssertEqual(player.queue.map(\.id), ["t1", "t2"],
                        "the queue was reordered by the client instead of taken as the server sent it")
@@ -55,10 +60,10 @@ final class ArtistDetailPlayAllTests: XCTestCase {
         let player = makePlayback()
 
         try await vm.shuffleAll(artist: artist(withOwnedAlbum: true),
-                                client: KimaAPIClient.stubbed(), player: player, toast: ToastCenter())
+                                client: KimaAPIClient.stubbed(baseURL: Self.host), player: player, toast: ToastCenter())
 
         XCTAssertEqual(Set(player.queue.map(\.id)), ["t1", "t2"], "shuffle lost a track")
-        XCTAssertEqual(StubURLProtocol.requests.count, 1)
+        XCTAssertEqual(requests.count, 1)
     }
 
     func testPlayAllOnAnArtistWithNothingOwnedRequestsNothing() async throws {
@@ -69,9 +74,9 @@ final class ArtistDetailPlayAllTests: XCTestCase {
         let toast = ToastCenter()
 
         try await vm.playAll(artist: artist(withOwnedAlbum: false),
-                            client: KimaAPIClient.stubbed(), player: player, toast: toast)
+                            client: KimaAPIClient.stubbed(baseURL: Self.host), player: player, toast: toast)
 
-        XCTAssertTrue(StubURLProtocol.requests.isEmpty, "a request ran for an artist with nothing owned")
+        XCTAssertTrue(requests.isEmpty, "a request ran for an artist with nothing owned")
         XCTAssertTrue(player.queue.isEmpty)
         XCTAssertNil(toast.current)
     }

@@ -9,14 +9,14 @@ final class FLACTailLoaderTests: XCTestCase {
     private var server: RangeFileServer!
 
     override func setUp() async throws {
-        server = RangeFileServer(data: try Data(contentsOf: FLACClockFixture.url()))
+        server = RangeFileServer(data: try FLACClockFixture.data())
         try server.start()
     }
 
     override func tearDown() async throws { server.stop() }
 
     func testFinderLandsWithinAQuarterSecondBeforeTheTarget() async throws {
-        let source = FLACByteSource.http(server.url, session: ProductionSessionFactory().makeSession())
+        let source = server.byteSource
         let read = try await FLACStream.read(from: source)
         let stream = try XCTUnwrap(read)
         for target in [0.0, 1.0, 37.3, 60.0, 89.5] {
@@ -29,12 +29,12 @@ final class FLACTailLoaderTests: XCTestCase {
     }
 
     func testATailPlaysFromTheFrameItStartsAt() async throws {
-        let source = FLACByteSource.http(server.url, session: ProductionSessionFactory().makeSession())
+        let source = server.byteSource
         let read = try await FLACStream.read(from: source)
         let stream = try XCTUnwrap(read)
         let found = try await stream.start(at: 60, from: source)
         let start = try XCTUnwrap(found)
-        let loader = FLACTailLoader(source: server.url, stream: stream, start: start, session: ProductionSessionFactory().makeSession())
+        let loader = FLACTailLoader(source: server.url, stream: stream, start: start, session: RangeFileServer.session)
         let item = AVPlayerItem(asset: loader.makeAsset())
         let tap = ClockTap()
         try await tap.attach(to: item)

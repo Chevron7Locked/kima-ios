@@ -96,11 +96,17 @@ extension PlaybackEngine {
     func handleInterruption(_ type: AVAudioSession.InterruptionType, shouldResume: Bool) {
         switch type {
         case .began:
+            // The OS paused the player: a running engine is paused now, not waiting for audio, so a
+            // ready or a landing seek that arrives before the KVO doesn't start it mid-call.
+            isInterrupted = true
+            if status.isRunning { status = .paused }
+            endSwapHold()
             // Push lock-screen update immediately; a second push arrives via KVO when
             // timeControlStatus settles.
             onPlaybackStateChanged?()
 
         case .ended:
+            isInterrupted = false
             guard wantsPlayback, [.playing, .paused, .buffering].contains(status) else { return }
             if shouldResume {
                 // KVO fires when playing starts and pushes the lock screen. A refused session

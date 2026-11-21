@@ -10,6 +10,11 @@ import MediaToolbox
 enum FLACClockFixture {
     static let sampleRate = 22_050.0
 
+    /// The fixture's bytes (see `url`).
+    static func data(seconds: Double = 90, ext: String = "flac") throws -> Data {
+        try Data(contentsOf: url(seconds: seconds, ext: ext))
+    }
+
     /// Writes the fixture once per test run (the encode takes about a second) and returns its URL.
     /// `ext` picks the container and codec: "flac" (FLAC) or "wav" (24-bit PCM, for the not-FLAC path).
     static func url(seconds: Double = 90, ext: String = "flac") throws -> URL {

@@ -32,6 +32,10 @@ struct FLACSeekState {
     var startOffset: Double = 0
     /// The seek in flight, if any: while one is, the 1 Hz clock holds the shown target.
     var seek: Task<Void, Never>?
+    /// A skip swapped the item while playing: it goes on showing playing (`isPlaying`) through the
+    /// swap's moment of no sound, as a seek's buffering does, until the new item plays. The
+    /// user's pause or a call ends it (`endSwapHold`).
+    var holdsPlaying = false
     var seekID = 0
 }
 
@@ -42,6 +46,9 @@ extension PlaybackEngine {
     func seek(to seconds: Double) {
         let target = max(0, seconds)
         currentTime = target  // optimistic: the 1 Hz observer only reports while playing
+        // Nothing to move: a failed track is rebuilt at `currentTime` (the controller's recovery
+        // point), so an older resume position must not outrank the skip.
+        if status == .error || status == .idle { pendingSeek = nil; return }
         // A skip while the whole track is still loading becomes the position it starts at: ready
         // lands it before playing, so the start never plays first. The top is no position (as in
         // `load`). A restarted stream starts mid-track, so a skip there restarts again instead.
@@ -71,12 +78,12 @@ extension PlaybackEngine {
         }
     }
 
-    /// Called by every load and teardown: a new stream knows nothing yet.
-    func resetFLACSeek(source: URL?) {
+    /// Called by every load and teardown: a new stream knows nothing yet, unless `kind` says.
+    func resetFLACSeek(source: URL?, kind: FLACSeekState.Kind? = nil) {
         flacSeek.seek?.cancel()
         flacSeek.probe?.cancel()
         let isHTTP = source?.scheme == "http" || source?.scheme == "https"
-        flacSeek = FLACSeekState(source: source, kind: isHTTP ? .unknown : .other)
+        flacSeek = FLACSeekState(source: source, kind: kind ?? (isHTTP ? .unknown : .other))
     }
 
     var isFLACSeekInFlight: Bool { flacSeek.seek != nil }
@@ -180,24 +187,54 @@ extension PlaybackEngine {
         guard let source = flacSeek.source else { return }
         let position = currentTime
         swapItem(to: AVPlayerItem(url: source)) {
-            flacSeek.seek?.cancel()
-            flacSeek = FLACSeekState(source: source, kind: .other)
-            pendingSeek = position > 0 ? position : nil   // ready lands it, then plays per wantsPlayback
-            status = .loading   // not .paused: the pause below is the swap, not the user's
+            resetFLACSeek(source: source, kind: .other)
+            pendingSeek = position > 0 ? position : nil   // ready lands it, then plays if it was running
+            // An engine the user wants playing waits for the new item, even one the failing stream
+            // left paused (not .paused: the pause below is the swap, not the user's); one the user
+            // or the OS stopped stays as it is.
+            if wantsPlayback, !isInterrupted, status != .blocked { status = .loading }
             player.pause()
         }
     }
 
-    /// Swaps in `item` within the current load: a new generation retires the old item's observers
-    /// and stall window. `prepare` sets the state the new item starts from.
+    /// Swaps in `item` within the current load. `prepare` sets the state the new item starts from.
     private func swapItem(to item: AVPlayerItem, prepare: () -> Void) {
+        let myGen = retireItem()
+        // Shown playing and really running (or held through a skip just before): not stopped by
+        // the OS ahead of its KVO.
+        let wasRunning = isPlaying && wantsPlayback && !isInterrupted && status.isRunning
+            && (player.rate != 0 || flacSeek.holdsPlaying)
+        prepare()
+        flacSeek.holdsPlaying = wasRunning
+        player.replaceCurrentItem(with: item)
+        setupItemObservers(item: item, generation: myGen)
+        updateStallWatchdog()
+    }
+
+    /// The swap is over: its new item is ready and playing.
+    func endSwapHoldIfPlaying() {
+        if player.currentItem?.status == .readyToPlay, player.timeControlStatus == .playing {
+            flacSeek.holdsPlaying = false
+        }
+    }
+
+    /// The swap's playing is over before the new item plays: the user paused, or a call came in.
+    func endSwapHold() {
+        guard flacSeek.holdsPlaying else { return }
+        flacSeek.holdsPlaying = false
+        if isPlaying, player.timeControlStatus != .playing {
+            isPlaying = false
+            onPlaybackStateChanged?()
+        }
+    }
+
+    /// Retires the current item for the next one, by a load or a swap: a new generation, the old
+    /// item's observers and stall window gone, and status dedupe starting over. Returns the generation.
+    func retireItem() -> Int {
         let myGen = nextGeneration()
         teardownItemObservers()
         cancelStallWatchdog()
         lastDeliveredStatus = nil
-        prepare()
-        player.replaceCurrentItem(with: item)
-        setupItemObservers(item: item, generation: myGen)
-        updateStallWatchdog()
+        return myGen
     }
 }

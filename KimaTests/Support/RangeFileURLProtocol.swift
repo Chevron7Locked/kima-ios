@@ -38,8 +38,8 @@ final class RangeFileURLProtocol: URLProtocol {
 
     override func startLoading() {
         let file = Self.lock.withLock { Self.data }
-        let asked = request.value(forHTTPHeaderField: "Range").flatMap { RangeHeader.range($0, size: file.count) }
-        let start = asked?.lowerBound ?? 0, end = asked?.upperBound ?? file.count - 1
+        let bytes = RangeHeader.served(request.value(forHTTPHeaderField: "Range"), size: file.count).bytes
+        let start = bytes.lowerBound, end = bytes.upperBound
         let reply = Self.lock.withLock { Self.served.append(start...end); return Self.replying(start...end) }
         if reply == .hang { return }
         if reply == .refuse {

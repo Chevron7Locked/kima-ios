@@ -23,7 +23,7 @@ struct FLACByteSource {
     static func http(_ url: URL, session: URLSession) -> FLACByteSource {
         FLACByteSource { range in
             var request = URLRequest(url: url)
-            request.setValue("bytes=\(range.lowerBound)-\(range.upperBound - 1)", forHTTPHeaderField: "Range")
+            request.setByteRange(range)
             let (bytes, response) = try await session.bytes(for: request)
             guard let http = response as? HTTPURLResponse, http.statusCode == 206 else {
                 bytes.task.cancel()

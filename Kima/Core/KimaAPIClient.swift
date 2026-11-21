@@ -87,7 +87,7 @@ actor KimaAPIClient {
     /// Auth is the normal header, never a URL token.
     func streamStatus(trackId: String) async -> Int? {
         var req = makeRequest("/library/tracks/\(trackId)/stream", method: "GET", authed: true)
-        req.setValue("bytes=0-1", forHTTPHeaderField: "Range")
+        req.setByteRange(0..<2)
         req.timeoutInterval = 10
         guard let result = try? await session.data(for: req),
               let http = result.1 as? HTTPURLResponse else { return nil }

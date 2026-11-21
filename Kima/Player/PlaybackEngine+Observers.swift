@@ -46,8 +46,15 @@ extension PlaybackEngine {
         if debugStalled { return }   // a simulated stall holds the engine in buffering
         #endif
         let prevIsPlaying = isPlaying
+        // A skip's item swap pauses or waits for a moment: still playing to the user (`holdsPlaying`),
+        // and buffering to the engine, so ready starts the new item and the stall watchdog bounds it.
+        let holdsPlayingThroughSwap = flacSeek.holdsPlaying && wantsPlayback && prevIsPlaying
         switch tcs {
         case .playing:
+            // The swap is over once the new item plays; before it's ready the player can report a
+            // moment of playing on the way to waiting. The item's own status, not its KVO, which
+            // can land after this.
+            endSwapHoldIfPlaying()
             let wasNotPlaying = status != .playing
             status = .playing
             isPlaying = true
@@ -56,16 +63,21 @@ extension PlaybackEngine {
 
         case .waitingToPlayAtSpecifiedRate:
             // Avoid overwriting .loading — let item-status KVO advance us to .buffering
-            // only once we have a confirmed item in flight.
-            if status != .idle && status != .loading {
+            // only once we have a confirmed item in flight. A paused or blocked engine buffers only
+            // once the player runs: right after an item swap it reports waiting with its rate at 0.
+            if status != .idle && status != .loading && !(status.isPausedOrBlocked && player.rate == 0) {
                 status = .buffering
             }
-            isPlaying = false
+            isPlaying = holdsPlayingThroughSwap
             isBuffering = true
 
         case .paused:
-            isPlaying = false
+            isPlaying = holdsPlayingThroughSwap
             isBuffering = false
+            if holdsPlayingThroughSwap {
+                if status == .playing { status = .buffering }
+                break
+            }
             // Don't overwrite terminal/load states or the `.blocked` state — the
             // interruption handler owns those transitions; KVO only covers normal play/pause.
             if status == .playing || status == .buffering {
@@ -144,13 +156,15 @@ extension PlaybackEngine {
             if isLoadsFirstReady { onReady?() }
             // If there's a pending seek (resume position), apply it BEFORE play so the
             // position indicator never flashes to 0. Play follows the user's intent as it is now,
-            // so a pause tapped during the load holds.
+            // so a pause tapped during the load holds; an engine the OS stopped (an interruption,
+            // `.blocked`) while a skip swapped the item stays stopped.
             // `pendingSeek` stays set until the seek lands, so a failure in between still resumes there.
+            endSwapHoldIfPlaying()   // its playing can report before this ready does
             if let target = pendingSeek {
                 land(at: target)   // a FLAC restarts at the target's frame instead, which clears pendingSeek
-            } else if wantsPlayback {
+            } else if isWaitingForAudio {
                 startIfStopped()
-            } else {
+            } else if !wantsPlayback {
                 status = .paused
             }
 
@@ -222,10 +236,10 @@ extension PlaybackEngine {
     func finishResumeSeek(finished: Bool, target: Double, generation myGen: Int) {
         guard generation == myGen else { return }
         pendingSeek = nil
-        if wantsPlayback {
+        if isWaitingForAudio {
             startIfStopped()
         } else {
-            status = .paused
+            if !wantsPlayback { status = .paused }
             if finished { currentTime = target }
         }
         updateStallWatchdog()

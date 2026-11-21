@@ -98,6 +98,8 @@ final class PlaybackEngine {
     /// it; after ready, whichever seek lands next (the resume's own or a skip) finishes it and clears it,
     /// and a FLAC restart clears it on the swap (the new stream starts there).
     var pendingSeek: Double?
+    /// A call (an interruption) began and hasn't ended, nor has the user played since: the OS stopped it.
+    var isInterrupted = false
     /// Last audio-session mode claimed; reused by load() and interruption-end so a spoken-audio
     /// session isn't reset to .default.
     var sessionMode: AVAudioSession.Mode = .default
@@ -191,11 +193,9 @@ final class PlaybackEngine {
     /// calls `play()` after any pending seek lands. `seekTo` (seconds, ignored when <= 0) is applied at
     /// `.readyToPlay` before play to prevent a flash of position 0.
     func load(url: URL, autoplay: Bool, seekTo: Double? = nil) {
-        let myGen = nextGeneration()
+        let myGen = retireItem()
         loadEpoch += 1  // a landed load retires every in-flight play-intent claim
         landedEpoch = loadEpoch
-        teardownItemObservers()
-        cancelStallWatchdog()
         #if DEBUG
         debugStalled = false
         #endif
@@ -204,7 +204,6 @@ final class PlaybackEngine {
         // full build→ready window (retrieve via `log show --predicate 'subsystem ==
         // "com.chevron7locked.kima"'`) — the audible stops-between-songs window.
         loadStartedAt = Date.now
-        lastDeliveredStatus = nil   // dedupe tracker is per-load-generation
         currentLoadReachedReady = false
         resetFLACSeek(source: url)
         #if DEBUG
@@ -235,6 +234,7 @@ final class PlaybackEngine {
         audioError = nil
         pendingSeek = (seekTo.map { $0 > 0 } == true) ? seekTo : nil
         wantsPlayback = autoplay
+        isInterrupted = false
 
         let item: AVPlayerItem
         if let warmed = prefetchedAsset, warmed.url == url {
@@ -266,12 +266,14 @@ final class PlaybackEngine {
     func play() {
         guard status != .idle, status != .error else { return }
         wantsPlayback = true
+        isInterrupted = false
         player.play()
         updateStallWatchdog()
     }
 
     func pause() {
         wantsPlayback = false
+        endSwapHold()
         player.pause()
         updateStallWatchdog()
     }

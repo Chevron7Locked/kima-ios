@@ -7,7 +7,7 @@ final class FLACStreamTests: XCTestCase {
     private var flac: Data!
 
     override func setUpWithError() throws {
-        flac = try Data(contentsOf: FLACClockFixture.url())
+        flac = try FLACClockFixture.data()
     }
 
     /// Reads from memory, counting the reads.
@@ -134,7 +134,7 @@ final class FLACStreamTests: XCTestCase {
     }
 
     func testANonFLACStreamIsNotStartedMidTrack() async throws {
-        let read = try await FLACStream.read(from: memory(Data(contentsOf: FLACClockFixture.url(ext: "wav"))))
+        let read = try await FLACStream.read(from: memory(FLACClockFixture.data(ext: "wav")))
         XCTAssertNil(read)
         let tiny = try await FLACStream.read(from: memory(Data("fLaC".utf8)))
         XCTAssertNil(tiny)
@@ -161,7 +161,7 @@ final class FLACStreamTests: XCTestCase {
         let server = RangeFileServer(data: flac, honorsRanges: false)
         try server.start()
         defer { server.stop() }
-        let read = try await FLACStream.read(from: .http(server.url, session: ProductionSessionFactory().makeSession()))
+        let read = try await FLACStream.read(from: server.byteSource)
         XCTAssertNil(read)
     }
 }

@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+@testable import Kima
 
 /// A loopback HTTP server that serves one file with byte ranges, like the hub's stream route, and
 /// records each request's range. Real sockets, because AVPlayer's own loading never goes through
@@ -21,6 +22,11 @@ final class RangeFileServer {
     /// Ranges served, in arrival order.
     var ranges: [ClosedRange<Int>] { lock.withLock { _ranges } }
     var url: URL { URL(string: "http://127.0.0.1:\(port)/api/library/tracks/t1/stream?token=x")! }
+
+    /// The session a test's own reads take: production's posture, as the engine's are.
+    static let session = ProductionSessionFactory.production.makeSession()
+    /// This server's file as the FLAC code reads it.
+    var byteSource: FLACByteSource { .http(url, session: Self.session) }
 
     /// `honorsRanges: false` answers every request with the whole file (200), like a server without range support.
     init(data: Data, mime: String = "audio/flac", honorsRanges: Bool = true) {
@@ -74,8 +80,8 @@ final class RangeFileServer {
             request += String(decoding: buf[0..<n], as: UTF8.self)
         }
         let line = request.split(separator: "\r\n").first { $0.lowercased().hasPrefix("range:") }
-        let asked = honorsRanges ? line.flatMap { RangeHeader.range(String($0), size: data.count) } : nil
-        let start = asked?.lowerBound ?? 0, end = asked?.upperBound ?? data.count - 1, partial = asked != nil
+        let (bytes, partial) = RangeHeader.served(honorsRanges ? line.map(String.init) : nil, size: data.count)
+        let start = bytes.lowerBound, end = bytes.upperBound
         lock.withLock { _ranges.append(start...end) }
         let wait = delay(start...end)
         if wait > 0 { Thread.sleep(forTimeInterval: wait) }

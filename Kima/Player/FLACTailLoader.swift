@@ -63,7 +63,7 @@ final class FLACTailLoader: NSObject, AVAssetResourceLoaderDelegate {
         // The rest is the original file shifted by a constant: served byte n is file byte n - header + start.
         let shift = start.byte - header.count
         var read = URLRequest(url: source)
-        read.setValue("bytes=\(offset + shift)-\(end + shift - 1)", forHTTPHeaderField: "Range")
+        read.setByteRange((offset + shift)..<(end + shift))
         let task = session.dataTask(with: read)
         task.delegate = Relay(self, queue: queue)
         pending[task.taskIdentifier] = (request, task)

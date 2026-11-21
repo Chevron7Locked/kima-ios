@@ -11,7 +11,7 @@ class FLACClockTestCase: XCTestCase {
     var engine: PlaybackEngine!
 
     override func setUp() async throws {
-        server = RangeFileServer(data: try Data(contentsOf: FLACClockFixture.url()))
+        server = RangeFileServer(data: try FLACClockFixture.data())
         try server.start()
         engine = makeEngine()
     }
@@ -27,6 +27,37 @@ class FLACClockTestCase: XCTestCase {
         engine.activateSession = { _ in }
         engine.player.volume = 0
         return engine
+    }
+
+    /// How long a stopped engine is watched for starting anyway after its item is ready: the late
+    /// KVO a swap leaves (waiting, then ready) hops to the main actor a turn or two later. Not a
+    /// measured bound: 500 ms caught the wrong start every run while it was a bug (2026-11-20).
+    static let settle = Duration.milliseconds(500)
+
+    /// The engine playing the fixture (or `url`) from the top.
+    func playing(_ url: URL? = nil) async {
+        engine.load(url: url ?? server.url, autoplay: true)
+        await waitUntil(10) { self.engine.status == .playing }
+    }
+
+    /// Shown play/pause flips (`onPlaybackStateChanged`) from now on.
+    func countStateChanges() -> () -> Int {
+        var changes = 0
+        engine.onPlaybackStateChanged = { changes += 1 }
+        return { changes }
+    }
+
+    /// A call comes in: the OS pauses the player, then tells the engine.
+    func beginInterruption() {
+        engine.player.pause()
+        engine.handleInterruption(.began, shouldResume: false)
+    }
+
+    /// Skips to `seconds` and waits until the skip's stream is in (a FLAC skip swaps the item).
+    func skipSwapped(to seconds: Double, file: StaticString = #filePath, line: UInt = #line) async {
+        engine.seek(to: seconds)
+        await waitUntil(5) { self.engine.isRestartedStream && !self.engine.isFLACSeekInFlight }
+        XCTAssertTrue(engine.isRestartedStream, "precondition: the skip swapped the item", file: file, line: line)
     }
 
     /// The position heard right now, read off the audio.
@@ -49,6 +80,6 @@ class FLACClockTestCase: XCTestCase {
 
     /// The fixture as WAV: a format the engine never restarts.
     func wavServer() throws -> RangeFileServer {
-        RangeFileServer(data: try Data(contentsOf: FLACClockFixture.url(ext: "wav")), mime: "audio/wav")
+        RangeFileServer(data: try FLACClockFixture.data(ext: "wav"), mime: "audio/wav")
     }
 }

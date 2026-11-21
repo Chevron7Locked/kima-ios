@@ -10,7 +10,7 @@
 # Any difference between what was tested and what is committed (a partial stage, an edit since
 # the run, an unstaged new file) gives a different tree, so the hook runs the suite as before.
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 2
 RECORD=build/kimatests-green-tree
 
 case "${1:-}" in

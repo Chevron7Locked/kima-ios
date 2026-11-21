@@ -10,7 +10,7 @@
 # Destination: the UDID pinned by .git/hooks/pre-commit (xcodebuild boots it itself);
 # override with KIMA_TEST_UDID=<udid> (xcrun simctl list devices available).
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" || exit 2
 
 # Scope honesty: bare invocation is the whole scheme — KimaUITests ride along, and many of
 # those classes need production :3030. When UI tests are in scope, probe :3030 up front so a

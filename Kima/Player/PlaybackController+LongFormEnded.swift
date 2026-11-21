@@ -80,7 +80,7 @@ extension PlaybackController {
         } else if let nextFile = session.nextFile(after: currentFile) {
             currentLongFormFileIndex = nextFile.index
             let endClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-            loadStream(claim: endClaim, autoplay: autoplay, seekTo: nil,
+            loadStream(claim: endClaim, autoplay: autoplay, seekTo: { nil },
                        afterLoad: { [weak self] in self?.nowPlayingHook?() }) { source in
                 await source.playableURL(bookId: session.bookId, index: nextFile.index)
             }

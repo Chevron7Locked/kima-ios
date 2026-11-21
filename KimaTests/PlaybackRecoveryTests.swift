@@ -150,6 +150,44 @@ final class PlaybackRecoveryTests: XCTestCase {
         if case .audiobook = c.playbackType {} else { XCTFail("the book stays loaded") }
     }
 
+    /// Fails a playing track at 42, holds the rebuild's ticket fetch, skips to `target` while it
+    /// is held, then lets the fetch answer and waits for the rebuilt item.
+    private func skipDuringRebuildFetch(to target: Double) async throws -> PlaybackController {
+        let c = controller()
+        c.apiClient = .stubbed()
+        c.queue = [try Track.fixture("a"), try Track.fixture("b")]
+        let asked = expectation(description: "the rebuild asked for a ticket")
+        let gate = DispatchSemaphore(value: 0)
+        defer { gate.signal() }  // never leave the stub's queue blocked
+        StubURLProtocol.handler = { req in
+            guard req.url?.path.hasSuffix("/auth/stream-ticket") == true else { return (404, Data()) }
+            asked.fulfill()
+            gate.wait()
+            return (200, Data(#"{"ticket":"fresh","expiresIn":3600}"#.utf8))
+        }
+        playingAndStuck(c, at: 42)
+        c.engine.giveUpOnStalledItem()
+        await fulfillment(of: [asked], timeout: 2)
+        XCTAssertEqual(c.engine.status, .error, "the skip lands while the rebuild is still fetching")
+        c.seek(to: target)
+        gate.signal()
+        let url = try await landed(c)
+        XCTAssertNotNil(url, "the rebuild loads")
+        return c
+    }
+
+    func testASkipDuringTheRebuildsTicketFetchIsWhereTheTrackRestarts() async throws {
+        let c = try await skipDuringRebuildFetch(to: 40)
+        XCTAssertEqual(c.engine.pendingSeek, 40, "last skip wins")
+        c.engine.clear()
+    }
+
+    func testASkipToTheTopDuringTheRebuildsTicketFetchRestartsAtTheTop() async throws {
+        let c = try await skipDuringRebuildFetch(to: 0)
+        XCTAssertNil(c.engine.pendingSeek, "the top, not the position the track failed at")
+        c.engine.clear()
+    }
+
     func testNoTicketBecauseTheSessionEndedSaysSo() async throws {
         let c = controller()
         c.apiClient = .stubbed()

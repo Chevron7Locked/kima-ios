@@ -5,9 +5,10 @@ extension PlaybackController {
     /// the player meanwhile. The caller mints `claim` (`engine.claimLoad()`) first, so load intents
     /// are totally ordered. A refused mint ends in a terminal error with the queue kept — and the
     /// login token is never a fallback. `prepare` runs before the ask (a rebuild drops its rejected
-    /// ticket there); `beforeLoad` / `afterLoad` wrap `engine.load`.
+    /// ticket there); `beforeLoad` / `afterLoad` wrap `engine.load`. `seekTo` is read when the load
+    /// is issued, after the ask: a rebuild restarts at a skip made while its ticket was fetched.
     func loadStream(
-        claim: Int, autoplay: Bool, seekTo: Double?,
+        claim: Int, autoplay: Bool, seekTo: @escaping @MainActor () -> Double?,
         prepare: (@MainActor () async -> Void)? = nil,
         beforeLoad: (@MainActor () -> Void)? = nil,
         afterLoad: (@MainActor () -> Void)? = nil,
@@ -28,7 +29,7 @@ extension PlaybackController {
             switch answer {
             case .url(let url):
                 beforeLoad?()
-                self.engine.load(url: url, autoplay: autoplay, seekTo: seekTo)
+                self.engine.load(url: url, autoplay: autoplay, seekTo: seekTo())
                 afterLoad?()
             case .noTicket:
                 let expired = await self.sessionHasExpired(self.apiClient)

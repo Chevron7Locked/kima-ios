@@ -156,7 +156,7 @@ extension PlaybackController {
                 let shouldAutoplay = engine.isPlaying || engine.status == .buffering
                 let seekClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
                 loadStream(claim: seekClaim, autoplay: shouldAutoplay,
-                           seekTo: fileTime > 0 ? fileTime : nil) { source in
+                           seekTo: { fileTime > 0 ? fileTime : nil }) { source in
                     await source.playableURL(bookId: session.bookId, index: file.index)
                 }
             } else {

@@ -58,7 +58,7 @@ extension PlaybackController {
         // (user next, recovery rebuild, cross-file seek) cancels the in-flight one instead of racing it.
         // Landings and teardowns bump the epoch (monotonic, never zeroed) so a stale claim can never collide.
         let loadClaim = engine.claimLoad()
-        loadStream(claim: loadClaim, autoplay: autoplay, seekTo: seekTo) { source in
+        loadStream(claim: loadClaim, autoplay: autoplay, seekTo: { seekTo }) { source in
             await source.playableURL(trackId: track.id)
         }
         refillStationIfAtTail()

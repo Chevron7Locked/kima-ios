@@ -39,7 +39,7 @@ echo "full log: $LOG (destination id=$UDID)"
 mkdir -p build && ln -sfn "$LOG" build/last-test.log || true
 
 # The transcript goes to $LOG, never stdout: a full run is ~100KB, and an agent that pipes
-# that away to save context loses the exit code with it. Green exits quietly past the header;
+# that away to save context loses the exit code with it. Green prints one count line;
 # red prints its own failure tail below. Read $LOG (also build/last-test.log) for the transcript.
 xcodebuild -project Kima.xcodeproj -scheme Kima \
     -destination "platform=iOS Simulator,id=$UDID" \
@@ -47,6 +47,7 @@ xcodebuild -project Kima.xcodeproj -scheme Kima \
 status=$?
 
 if grep -q '\*\* TEST SUCCEEDED \*\*' "$LOG" && grep -qE 'Executed [1-9][0-9]* tests?' "$LOG"; then
+    echo "green: $(grep -oE 'Executed [0-9]+ tests?, with [0-9]+ failures?' "$LOG" | tail -1)"
     exit 0
 fi
 echo "not green (xcodebuild exit $status):" >&2

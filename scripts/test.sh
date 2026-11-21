@@ -4,6 +4,9 @@
 # ** TEST SUCCEEDED ** ("Executed 0 tests"). So green here means: xcodebuild exited 0,
 # the log says ** TEST SUCCEEDED **, AND at least one test actually executed.
 # Usage: scripts/test.sh [-only-testing:KimaTests/<Class> ...]
+# Every run regenerates Kima.xcodeproj first (xcodegen), so a file added since the last
+# generate is compiled rather than silently left out. A whole-target green
+# (-only-testing:KimaTests) records its tree for the pre-commit hook (scripts/kimatests-green.sh).
 # Destination: the UDID pinned by .git/hooks/pre-commit (xcodebuild boots it itself);
 # override with KIMA_TEST_UDID=<udid> (xcrun simctl list devices available).
 set -uo pipefail
@@ -38,6 +41,15 @@ echo "full log: $LOG (destination id=$UDID)"
 # Stable pointer for post-mortems: mktemp paths under $TMPDIR are unguessable; build/ is gitignored.
 mkdir -p build && ln -sfn "$LOG" build/last-test.log || true
 
+# The tested tree is fingerprinted BEFORE the run, so an edit made mid-run never inherits the
+# verdict. No fingerprint means no record: the hook then runs the suite.
+tested_tree=""
+if [ "$*" = "-only-testing:KimaTests" ]; then
+    scripts/kimatests-green.sh clear
+    tested_tree=$(scripts/kimatests-green.sh fingerprint) || tested_tree=""
+fi
+xcodegen generate >/dev/null || { echo "xcodegen generate failed" >&2; exit 2; }
+
 # The transcript goes to $LOG, never stdout: a full run is ~100KB, and an agent that pipes
 # that away to save context loses the exit code with it. Green prints one count line;
 # red prints its own failure tail below. Read $LOG (also build/last-test.log) for the transcript.
@@ -51,6 +63,7 @@ status=$?
 summary=$(grep -oE 'Executed [1-9][0-9]* tests?, with [^(]*' "$LOG" | tail -1 | sed 's/ *$//')
 if [ "$status" -eq 0 ] && grep -q '\*\* TEST SUCCEEDED \*\*' "$LOG" && [ -n "$summary" ]; then
     echo "green: $summary"
+    [ -n "$tested_tree" ] && scripts/kimatests-green.sh record "$tested_tree"
     exit 0
 fi
 echo "not green (xcodebuild exit $status):" >&2
@@ -58,7 +71,10 @@ grep -E '\*\* TEST (SUCCEEDED|FAILED) \*\*|Executed [0-9]+ tests?' "$LOG" | tail
 # Per-test failure messages: XCTest emits `File.swift:NN: error: -[Suite test] : reason`.
 # The summary above buries them when a class fails en masse — print them whole (capped)
 # so a red needs no xcresulttool dig.
-grep -E 'error:' "$LOG" | head -40 >&2
+# Error lines only: `file:line[:col]: error:` (tests, thrown tests as `<unknown>:0`, Swift,
+# Metal), clang/ld/xcodebuild, and bare `error:`. Simulator system logs that merely say
+# "error:" mid-line stay out.
+grep -E '^[[:space:]]*([^[:space:]]+:[0-9]+(:[0-9]+)?: error: |(clang|xcodebuild): error: |ld: |error: )' "$LOG" | head -40 >&2
 # Non-test reds read like test failures; name them when the log shows them.
 if grep -qE "failed preflight checks|Simulator device failed to launch" "$LOG"; then
     echo "hint: simulator refused the launch (often 'Busy' after an earlier hung run): xcrun simctl shutdown $UDID 2>/dev/null; xcrun simctl bootstatus $UDID -b, then rerun" >&2

@@ -55,9 +55,6 @@ extension PlaybackController {
         }
     }
 
-    /// `recoveryPoint` as a load's start: the top is no position (as in `load`).
-    var recoveryStart: Double? { recoveryPoint > 0 ? recoveryPoint : nil }
-
     // MARK: - Failure entry points
 
     /// The engine's item failed. A music track that never played gets the gone check first; every
@@ -138,17 +135,16 @@ extension PlaybackController {
         if case .track = playbackType { lastKnownMusicPosition = position }
         // The lock screen keeps the item, shown paused, while it rebuilds.
         nowPlayingHook?()
-        rebuildCurrentItem(at: position, autoplay: resumePlaying)
+        rebuildCurrentItem(autoplay: resumePlaying)
         return true
     }
 
-    /// Reload the current item at `position` (`recoveryPoint` units) with a fresh stream ticket: a
-    /// clock-valid ticket the server rejects would fail the rebuild too. No ticket or URL ends in
-    /// loadStream's terminal error with the queue kept; a repeat failure comes back through
-    /// `handleFailed`, and reaching .readyToPlay resets the budget. A music track starts at
-    /// `recoveryPoint` as it reads when the load is issued, so a skip made during the fetch wins;
-    /// long-form starts at `position`.
-    func rebuildCurrentItem(at position: Double, autoplay: Bool) {
+    /// Reload the current item at `recoveryPoint` with a fresh stream ticket: a clock-valid ticket
+    /// the server rejects would fail the rebuild too. No ticket or URL ends in loadStream's terminal
+    /// error with the queue kept; a repeat failure comes back through `handleFailed`, and reaching
+    /// .readyToPlay resets the budget. A music track reads `recoveryPoint` when the load is issued,
+    /// so a skip made during the fetch wins; long-form reads it now (ticket 26).
+    func rebuildCurrentItem(autoplay: Bool) {
         // Drop the cached ticket first: a clock-valid ticket the server just rejected would fail the rebuild too.
         let prepare: @MainActor () async -> Void = { [weak self] in self?.streamSource?.dropTicket() }
         switch playbackType {
@@ -156,13 +152,12 @@ extension PlaybackController {
             guard queue.indices.contains(currentIndex) else { return }
             let track = queue[currentIndex]
             let claim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-            // The restart point is read again at load: a skip during the ticket fetch wins over `position`.
-            loadStream(claim: claim, autoplay: autoplay, seekTo: { [weak self] in self?.recoveryStart },
+            loadStream(claim: claim, autoplay: autoplay, seekTo: { self.recoveryPoint },
                        prepare: prepare) { source in
                 await source.playableURL(trackId: track.id)
             }
         case .audiobook, .podcastEpisode:
-            rebuildLongFormStream(at: position, autoplay: autoplay, prepare: prepare)
+            rebuildLongFormStream(at: recoveryPoint, autoplay: autoplay, prepare: prepare)
         }
     }
 

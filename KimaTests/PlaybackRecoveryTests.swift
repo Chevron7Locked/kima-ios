@@ -150,15 +150,19 @@ final class PlaybackRecoveryTests: XCTestCase {
         if case .audiobook = c.playbackType {} else { XCTFail("the book stays loaded") }
     }
 
-    /// Fails a playing track at 42, holds the rebuild's ticket fetch, skips to `target` while it
-    /// is held, then lets the fetch answer and waits for the rebuilt item.
-    private func skipDuringRebuildFetch(to target: Double) async throws -> PlaybackController {
+    /// Fails a playing track at 42, holds the rebuild's ticket fetch, runs `skip` while it is
+    /// held, then lets the fetch answer and waits for the rebuilt item. The engine is cleared at
+    /// teardown.
+    private func skipDuringRebuildFetch(
+        _ skip: (PlaybackController) async -> Void
+    ) async throws -> PlaybackController {
         let c = controller()
+        addTeardownBlock { @MainActor in c.engine.clear() }
         c.apiClient = .stubbed()
         c.queue = [try Track.fixture("a"), try Track.fixture("b")]
         let asked = expectation(description: "the rebuild asked for a ticket")
         let gate = DispatchSemaphore(value: 0)
-        defer { gate.signal() }  // never leave the stub's queue blocked
+        defer { gate.signal() }  // an early exit must not leave the stub's queue blocked
         StubURLProtocol.handler = { req in
             guard req.url?.path.hasSuffix("/auth/stream-ticket") == true else { return (404, Data()) }
             asked.fulfill()
@@ -169,7 +173,7 @@ final class PlaybackRecoveryTests: XCTestCase {
         c.engine.giveUpOnStalledItem()
         await fulfillment(of: [asked], timeout: 2)
         XCTAssertEqual(c.engine.status, .error, "the skip lands while the rebuild is still fetching")
-        c.seek(to: target)
+        await skip(c)
         gate.signal()
         let url = try await landed(c)
         XCTAssertNotNil(url, "the rebuild loads")
@@ -177,15 +181,22 @@ final class PlaybackRecoveryTests: XCTestCase {
     }
 
     func testASkipDuringTheRebuildsTicketFetchIsWhereTheTrackRestarts() async throws {
-        let c = try await skipDuringRebuildFetch(to: 40)
+        let c = try await skipDuringRebuildFetch { $0.seek(to: 40) }
         XCTAssertEqual(c.engine.pendingSeek, 40, "last skip wins")
-        c.engine.clear()
     }
 
     func testASkipToTheTopDuringTheRebuildsTicketFetchRestartsAtTheTop() async throws {
-        let c = try await skipDuringRebuildFetch(to: 0)
+        let c = try await skipDuringRebuildFetch { $0.seek(to: 0) }
         XCTAssertNil(c.engine.pendingSeek, "the top, not the position the track failed at")
-        c.engine.clear()
+    }
+
+    func testABackSkipPastTheTopDuringTheRebuildsTicketFetchRestartsAtTheTop() async throws {
+        let c = try await skipDuringRebuildFetch { c in
+            c.skip(by: -60)  // the -30 s button twice: 42 back to the top
+            await self.waitUntil { c.skipTask == nil }
+            XCTAssertNil(c.skipTask, "the debounced skip has landed")
+        }
+        XCTAssertNil(c.engine.pendingSeek, "the top, not the position the track failed at")
     }
 
     func testNoTicketBecauseTheSessionEndedSaysSo() async throws {

@@ -155,15 +155,19 @@ extension PlaybackController {
                 currentLongFormFileIndex = file.index
                 let shouldAutoplay = engine.isPlaying || engine.status == .buffering
                 let seekClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-                loadStream(claim: seekClaim, autoplay: shouldAutoplay,
-                           seekTo: { fileTime > 0 ? fileTime : nil }) { source in
+                loadStream(claim: seekClaim, autoplay: shouldAutoplay, seekTo: { fileTime }) { source in
                     await source.playableURL(bookId: session.bookId, index: file.index)
                 }
             } else {
                 engine.seek(to: fileTime)
             }
-        case .podcastEpisode, .track:
+        case .podcastEpisode:
             engine.seek(to: seconds)
+        case .track:
+            engine.seek(to: seconds)
+            // Every user seek (scrubber or ±30 s) is where a rebuild of a failed track restarts,
+            // the top included: the engine's 0 can't tell "skipped to the top" from "never played".
+            lastKnownMusicPosition = seconds
         }
     }
 

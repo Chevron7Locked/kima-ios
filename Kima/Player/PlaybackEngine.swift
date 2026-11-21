@@ -232,7 +232,7 @@ final class PlaybackEngine {
 
         status = .loading
         audioError = nil
-        pendingSeek = (seekTo.map { $0 > 0 } == true) ? seekTo : nil
+        pendingSeek = seekTo.flatMap(\.asStartPosition)
         wantsPlayback = autoplay
         isInterrupted = false
 

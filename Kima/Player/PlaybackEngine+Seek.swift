@@ -50,10 +50,10 @@ extension PlaybackEngine {
         // point), so an older resume position must not outrank the skip.
         if status == .error || status == .idle { pendingSeek = nil; return }
         // A skip while the whole track is still loading becomes the position it starts at: ready
-        // lands it before playing, so the start never plays first. The top is no position (as in
-        // `load`). A restarted stream starts mid-track, so a skip there restarts again instead.
+        // lands it before playing, so the start never plays first. A restarted stream starts
+        // mid-track, so a skip there restarts again instead.
         if status == .loading, lastDeliveredStatus != .readyToPlay, !isRestartedStream {
-            pendingSeek = target > 0 ? target : nil
+            pendingSeek = target.asStartPosition
             return
         }
         land(at: target)
@@ -188,7 +188,7 @@ extension PlaybackEngine {
         let position = currentTime
         swapItem(to: AVPlayerItem(url: source)) {
             resetFLACSeek(source: source, kind: .other)
-            pendingSeek = position > 0 ? position : nil   // ready lands it, then plays if it was running
+            pendingSeek = position.asStartPosition   // ready lands it, then plays if it was running
             // An engine the user wants playing waits for the new item, even one the failing stream
             // left paused (not .paused: the pause below is the swap, not the user's); one the user
             // or the OS stopped stays as it is.
@@ -237,4 +237,10 @@ extension PlaybackEngine {
         lastDeliveredStatus = nil
         return myGen
     }
+}
+
+extension Double {
+    /// This time as a position an item starts at: the top is no position, so a load or a
+    /// pre-ready skip to 0 plays from the start without a seek. Every caller passes raw times.
+    var asStartPosition: Double? { self > 0 ? self : nil }
 }

@@ -29,8 +29,7 @@ extension PlaybackController {
         if playbackType.isLongForm {
             rebuildLongFormStream(at: max(0, lastSavedProgressTime))
         } else if !queue.isEmpty {
-            loadCurrentTrack(autoplay: true,
-                             seekTo: lastKnownMusicPosition > 0 ? lastKnownMusicPosition : nil)
+            loadCurrentTrack(autoplay: true, seekTo: lastKnownMusicPosition)
         } else {
             engine.play()   // nothing loaded and nothing to load → inert
         }
@@ -59,7 +58,7 @@ extension PlaybackController {
         cancelSkipDebounce()  // the explicit seek wins over a pending skip
         cancelStationResume()
         performSeekInternal(to: seconds)
-        displayTime = seconds; if !playbackType.isLongForm { lastKnownMusicPosition = seconds }
+        displayTime = seconds
         nowPlayingHook?()
     }
 }

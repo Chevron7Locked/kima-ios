@@ -46,8 +46,11 @@ xcodebuild -project Kima.xcodeproj -scheme Kima \
     test "$@" >"$LOG" 2>&1
 status=$?
 
-if grep -q '\*\* TEST SUCCEEDED \*\*' "$LOG" && grep -qE 'Executed [1-9][0-9]* tests?' "$LOG"; then
-    echo "green: $(grep -oE 'Executed [0-9]+ tests?, with [0-9]+ failures?' "$LOG" | tail -1)"
+# The run's last count line, whatever follows the count (failures, skips): the gate and the
+# green line read the same match. "Executed 0 tests" never matches, so it is never green.
+summary=$(grep -oE 'Executed [1-9][0-9]* tests?, with [^(]*' "$LOG" | tail -1 | sed 's/ *$//')
+if [ "$status" -eq 0 ] && grep -q '\*\* TEST SUCCEEDED \*\*' "$LOG" && [ -n "$summary" ]; then
+    echo "green: $summary"
     exit 0
 fi
 echo "not green (xcodebuild exit $status):" >&2

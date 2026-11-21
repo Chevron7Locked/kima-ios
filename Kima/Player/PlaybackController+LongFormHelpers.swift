@@ -51,7 +51,7 @@ extension PlaybackController {
         currentLongFormFileIndex = file.index  // track in-flight file before the async hop
         let posClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
         loadStream(claim: posClaim, autoplay: autoplay,
-                   seekTo: { fileTime > 0 ? fileTime : nil }, prepare: prepare) { source in
+                   seekTo: { fileTime }, prepare: prepare) { source in
             await source.playableURL(bookId: session.bookId, index: file.index)
         }
     }
@@ -63,7 +63,7 @@ extension PlaybackController {
         let sampleItunesId = podcastSampleItunesId  // read before the async hop: a sample streams its snippet
         let epClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
         loadStream(claim: epClaim, autoplay: autoplay,
-                   seekTo: { seekTo > 0 ? seekTo : nil }, prepare: prepare) { source in
+                   seekTo: { seekTo }, prepare: prepare) { source in
             if let sampleItunesId {
                 return await source.playableURL(sampleItunesId: sampleItunesId)
             }

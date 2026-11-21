@@ -81,7 +81,7 @@ final class PlaybackEngine {
     /// intent and are dropped, or an end during the ticket fetch would advance the queue twice.
     func claimLoad() -> Int {
         loadEpoch += 1
-        generation += 1
+        nextGeneration()
         cancelStallWatchdog()
         return loadEpoch
     }
@@ -94,7 +94,9 @@ final class PlaybackEngine {
     /// A load was claimed and hasn't landed: the player still holds the previous item.
     var isLoadPending: Bool { loadEpoch != landedEpoch }
 
-    /// Seek position applied at `.readyToPlay` before `play()`; cleared once that seek lands.
+    /// Saved position applied at `.readyToPlay` before `play()`: the resume. A skip before ready replaces
+    /// it; after ready, whichever seek lands next (the resume's own or a skip) finishes it and clears it,
+    /// and a FLAC restart clears it on the swap (the new stream starts there).
     var pendingSeek: Double?
     /// Last audio-session mode claimed; reused by load() and interruption-end so a spoken-audio
     /// session isn't reset to .default.
@@ -167,9 +169,15 @@ final class PlaybackEngine {
     /// in-flight resource loading alive across the track-advance gap.
     var prefetchedAsset: AVURLAsset?
 
+    /// Exact seeks in FLAC streams (see +Seek). Reset by every load and teardown.
+    var flacSeek = FLACSeekState()
+    /// The engine's own reads of the stream (FLAC seeks); AVPlayer loads the item itself.
+    let streamSession: URLSession
+
     // MARK: - Init
 
-    init() {
+    init(sessions: any SessionFactory = .production) {
+        streamSession = sessions.makeSession()
         player = AVPlayer()
         player.automaticallyWaitsToMinimizeStalling = true
         setupPeriodicTimeObserver()
@@ -198,6 +206,7 @@ final class PlaybackEngine {
         loadStartedAt = Date.now
         lastDeliveredStatus = nil   // dedupe tracker is per-load-generation
         currentLoadReachedReady = false
+        resetFLACSeek(source: url)
         #if DEBUG
         logger.info("KIMA_AUDIO load-start gen=\(myGen, privacy: .public) autoplay=\(autoplay, privacy: .public)")
         #endif
@@ -267,20 +276,14 @@ final class PlaybackEngine {
         updateStallWatchdog()
     }
 
-    /// Zero-tolerance seek — no frame drift.
-    func seek(to seconds: Double) {
-        currentTime = max(0, seconds)  // optimistic: the 1 Hz observer only reports while playing
-        let t = CMTime(seconds: max(0, seconds), preferredTimescale: 1000)
-        player.seek(to: t, toleranceBefore: .zero, toleranceAfter: .zero)
-    }
-
     /// Surface an error that originated outside AVFoundation (e.g., no stream ticket available).
     /// Tears down the current item and puts the engine into `.error` state.
     func signalExternalError(_ message: String) {
         teardownItemObservers()
         player.replaceCurrentItem(with: nil)
         prefetchedAsset = nil   // a token-bearing warmed URL must not outlive a dead session
-        generation = nextGeneration() // invalidate any in-flight observers
+        resetFLACSeek(source: nil)
+        nextGeneration()              // invalidate any in-flight observers
         loadEpoch += 1                // ...and any in-flight play-intent claims
         landedEpoch = loadEpoch
         cancelStallWatchdog()
@@ -297,7 +300,8 @@ final class PlaybackEngine {
         teardownItemObservers()
         player.replaceCurrentItem(with: nil)
         prefetchedAsset = nil   // see signalExternalError: no stale token-bearing prefetch
-        generation = nextGeneration()
+        resetFLACSeek(source: nil)
+        nextGeneration()
         loadEpoch += 1                // invalidate in-flight play-intent claims
         landedEpoch = loadEpoch
         cancelStallWatchdog()
@@ -312,7 +316,8 @@ final class PlaybackEngine {
 
     // MARK: - Generation
 
-    private func nextGeneration() -> Int {
+    @discardableResult
+    func nextGeneration() -> Int {
         generation += 1
         return generation
     }

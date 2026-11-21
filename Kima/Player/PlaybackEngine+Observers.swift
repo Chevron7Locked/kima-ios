@@ -13,13 +13,16 @@ extension PlaybackEngine {
         periodicTimeToken = player.addPeriodicTimeObserver(
             forInterval: interval,
             queue: .main
-        ) { [weak self] time in
-            // The block runs on DispatchQueue.main but is not statically @MainActor in
-            // Swift 6 strict concurrency — hop explicitly to access isolated stored properties.
-            Task { @MainActor [weak self] in
+        ) { [weak self] _ in
+            // The block runs on DispatchQueue.main, so it reads state in place, and it reads the
+            // player's time rather than the block's: a call queued before a FLAC seek swapped the
+            // item carries the old item's time, which added to the new start is seconds ahead.
+            MainActor.assumeIsolated { [weak self] in
                 guard let self else { return }
                 guard self.status == .playing || self.status == .buffering else { return }
-                self.currentTime = time.seconds
+                // A FLAC seek in flight holds the target it showed; the old item's time isn't news.
+                guard !self.isFLACSeekInFlight else { return }
+                self.currentTime = self.flacSeek.startOffset + self.player.currentTime().seconds
                 // Fires every second; NowPlayingController.refresh throttles lock-screen position
                 // pushes to once per 5 s.
                 self.onTick?()
@@ -96,7 +99,8 @@ extension PlaybackEngine {
             Task { @MainActor [weak self] in
                 guard let self, self.generation == myGen else { return }
                 let d = obs.duration
-                if d.isNumeric && d.seconds > 0 { self.duration = d.seconds }
+                // A FLAC item starting mid-track is the track's remainder: add back what it skips.
+                if d.isNumeric && d.seconds > 0 { self.duration = self.flacSeek.startOffset + d.seconds }
             }
         }
 
@@ -134,25 +138,27 @@ extension PlaybackEngine {
             #endif
             // A successful ready (even one that lands paused) means any in-flight recovery
             // re-buffered — reset the controller's bounded-retry budget.
+            // A load's first ready only: a skip's restarted stream (+Seek) is the same load.
+            let isLoadsFirstReady = !currentLoadReachedReady
             currentLoadReachedReady = true
-            onReady?()
+            if isLoadsFirstReady { onReady?() }
             // If there's a pending seek (resume position), apply it BEFORE play so the
             // position indicator never flashes to 0. Play follows the user's intent as it is now,
             // so a pause tapped during the load holds.
             // `pendingSeek` stays set until the seek lands, so a failure in between still resumes there.
             if let target = pendingSeek {
-                let t = CMTime(seconds: target, preferredTimescale: 1000)
-                player.seek(to: t, toleranceBefore: .zero, toleranceAfter: .zero) { [weak self] finished in
-                    Task { @MainActor [weak self] in
-                        self?.finishResumeSeek(finished: finished, target: target, generation: myGen)
-                    }
-                }
+                land(at: target)   // a FLAC restarts at the target's frame instead, which clears pendingSeek
+            } else if wantsPlayback {
+                startIfStopped()
             } else {
-                if wantsPlayback { player.play() }
-                else             { status = .paused }
+                status = .paused
             }
 
         case .failed:
+            if isRestartedStream {
+                fallBackToWholeTrack()
+                return
+            }
             #if DEBUG
             // Failure probe (unified logging, readable with `log show` on subsystem
             // com.chevron7locked.kima). The NSURLError code, often nested in the underlying error,
@@ -217,12 +223,18 @@ extension PlaybackEngine {
         guard generation == myGen else { return }
         pendingSeek = nil
         if wantsPlayback {
-            player.play()
+            startIfStopped()
         } else {
             status = .paused
             if finished { currentTime = target }
         }
         updateStallWatchdog()
+    }
+
+    /// Plays a stopped player. A running one is left alone: `play()` resets the rate to 1×, and a
+    /// swapped-in FLAC stream keeps the running rate (a long-form speed). A load stops the player first.
+    func startIfStopped() {
+        if player.rate == 0 { player.play() }
     }
 
     #if DEBUG

@@ -43,8 +43,9 @@ extension PlaybackEngine {
         #if DEBUG
         debugStalled = false
         #endif
+        if isRestartedStream { fallBackToWholeTrack(); return }
         teardownItemObservers()
-        generation += 1
+        nextGeneration()
         player.pause()
         wasPlayingBeforeFailure = true
         status = .error

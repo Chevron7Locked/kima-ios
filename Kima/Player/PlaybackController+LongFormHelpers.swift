@@ -42,25 +42,52 @@ extension PlaybackController {
         }
     }
 
-    // MARK: - Loaders
+    // MARK: - The audiobook's loaded file
 
-    /// `prepare` runs before the playable-URL ask (see `loadStream`). The file is chosen from
-    /// `bookTime()` at the call. When that is the file already loaded, `bookTime()` is read again
-    /// when the load is issued, so a skip within the file made during the ticket fetch is where it
-    /// starts (a skip to another file claims its own load). When the file changes, the start is
-    /// fixed at the call: `recoveryPoint` reads the engine's time against the current file, and the
-    /// engine's time still belongs to the old one.
-    func loadBookPosition(bookTime: @escaping @MainActor () -> Double, session: BookSession, autoplay: Bool,
-                          prepare: (@MainActor () async -> Void)? = nil) {
-        let (file, fileTime) = session.locate(bookTime: bookTime())
-        let seekTo: @MainActor () -> Double? = file.index == currentLongFormFileIndex
-            ? { session.fileTime(bookTime: bookTime(), in: file) }
-            : { fileTime }
-        currentLongFormFileIndex = file.index  // track in-flight file before the async hop
-        let posClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-        loadStream(claim: posClaim, autoplay: autoplay, seekTo: seekTo, prepare: prepare) { source in
+    /// Run `change` on the playing audiobook's session and return its value with the session after
+    /// it. Nil when no audiobook is playing. The loaded file is the session's one mutable state, so
+    /// `playbackType` is written back only when it moved: a seek within the file leaves the observed
+    /// value alone, while a file change re-notifies its readers (CarPlay's `configure` re-runs,
+    /// idempotent, as it does on every podcast episode change).
+    @discardableResult
+    func updateBook<Value>(_ change: (inout BookSession) -> Value) -> (value: Value, session: BookSession)? {
+        guard case .audiobook(var session) = playbackType else { return nil }
+        let before = session.loadedFileIndex
+        let value = change(&session)
+        if session.loadedFileIndex != before { playbackType = .audiobook(session) }
+        return (value, session)
+    }
+
+    /// Stream `file` of `session`'s book: the one shape of every audiobook file load. `seekTo` is
+    /// read when the load is issued (see `loadStream`); nil starts at the file's top.
+    func loadBookFile(_ file: AudiobookTrack, of session: BookSession, autoplay: Bool,
+                      seekTo: @escaping @MainActor () -> Double?,
+                      prepare: (@MainActor () async -> Void)? = nil,
+                      afterLoad: (@MainActor () -> Void)? = nil) {
+        let claim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
+        loadStream(claim: claim, autoplay: autoplay, seekTo: seekTo, prepare: prepare,
+                   afterLoad: afterLoad) { source in
             await source.playableURL(bookId: session.bookId, index: file.index)
         }
+    }
+
+    // MARK: - Loaders
+
+    /// Load the playing audiobook at `bookTime()`. `prepare` runs before the playable-URL ask (see
+    /// `loadStream`). The file is chosen from `bookTime()` at the call. When that is the file
+    /// already loaded, `bookTime()` is read again when the load is issued, so a skip within the file
+    /// made during the ticket fetch is where it starts (a skip to another file claims its own load).
+    /// When the file changes, the start is fixed at the call: `recoveryPoint` reads the engine's time
+    /// against the loaded file, and the engine's time still belongs to the old one.
+    func loadBookPosition(bookTime: @escaping @MainActor () -> Double, autoplay: Bool,
+                          prepare: (@MainActor () async -> Void)? = nil) {
+        // The session's loaded file moves here, before the async hop: the file in flight is the loaded one.
+        guard let (load, session) = updateBook({ $0.load(at: bookTime()) }) else { return }
+        let file = load.file
+        let seekTo: @MainActor () -> Double? = load.isSameFile
+            ? { session.fileTime(bookTime: bookTime(), in: file) }
+            : { load.fileTime }
+        loadBookFile(file, of: session, autoplay: autoplay, seekTo: seekTo, prepare: prepare)
     }
 
     /// `seekTo` is read when the load is issued (see `loadStream`).
@@ -104,8 +131,8 @@ extension PlaybackController {
     func rebuildLongFormStream(at position: @escaping @MainActor () -> Double, autoplay: Bool = true,
                                prepare: (@MainActor () async -> Void)? = nil) {
         switch playbackType {
-        case .audiobook(let session):
-            loadBookPosition(bookTime: position, session: session, autoplay: autoplay, prepare: prepare)
+        case .audiobook:
+            loadBookPosition(bookTime: position, autoplay: autoplay, prepare: prepare)
         case .podcastEpisode(let podcastId, let episode, _):
             loadPodcastEpisode(podcastId: podcastId, episode: episode, seekTo: position,
                                autoplay: autoplay, prepare: prepare)

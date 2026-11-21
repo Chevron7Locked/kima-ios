@@ -22,10 +22,11 @@ final class PlaybackRecoveryTests: XCTestCase {
         return c
     }
 
-    private var book: BookSession {
+    /// Two files (book time 0–100, 100–200), `loaded` the one in the engine.
+    private func book(loaded: Int) -> BookSession {
         BookSession(bookId: "b", totalDuration: 200, files: [
             AudiobookTrack(index: 1, startOffset: 0, duration: 100),
-            AudiobookTrack(index: 2, startOffset: 100, duration: 100)])
+            AudiobookTrack(index: 2, startOffset: 100, duration: 100)], loadedFileIndex: loaded)
     }
 
     /// Waits for the rebuild's ticket fetch and load to land.
@@ -64,8 +65,7 @@ final class PlaybackRecoveryTests: XCTestCase {
 
     func testAudiobookStallRebuildsTheRightFileAtTheBookPosition() async throws {
         let c = controller()
-        c.playbackType = .audiobook(book)
-        c.currentLongFormFileIndex = 2
+        c.playbackType = .audiobook(book(loaded: 2))
         c.longFormAPIClient = .stubbed()
         playingAndStuck(c, at: 30)
         var lockScreen = 0
@@ -98,8 +98,7 @@ final class PlaybackRecoveryTests: XCTestCase {
 
     func testAnAudiobookFailingAtTheEndOfAFileRestartsAtTheTopOfTheNext() async throws {
         let c = controller()
-        c.playbackType = .audiobook(book)
-        c.currentLongFormFileIndex = 1
+        c.playbackType = .audiobook(book(loaded: 1))
         c.longFormAPIClient = .stubbed()
         playingAndStuck(c, at: 100)  // the end of file 1: book time 100 is file 2's top
         c.engine.giveUpOnStalledItem()
@@ -111,8 +110,7 @@ final class PlaybackRecoveryTests: XCTestCase {
 
     func testALoadThatFailsBeforePlayingRestartsWhereItWasAsked() {
         let c = controller()
-        c.playbackType = .audiobook(book)
-        c.currentLongFormFileIndex = 2
+        c.playbackType = .audiobook(book(loaded: 2))
         c.engine.pendingSeek = 55
         c.engine.currentTime = 0
         XCTAssertEqual(c.recoveryPoint, 155, "file 2 starts at 100; the resume seek never landed")
@@ -151,8 +149,7 @@ final class PlaybackRecoveryTests: XCTestCase {
 
     func testLongFormPastTheBudgetStopsInsteadOfLooping() throws {
         let c = controller()
-        c.playbackType = .audiobook(book)
-        c.currentLongFormFileIndex = 1
+        c.playbackType = .audiobook(book(loaded: 1))
         c.longFormAPIClient = .stubbed()
         for _ in 0..<c.maxRecoveryAttempts { XCTAssertTrue(c.consumeRecoveryBudget(at: 20)) }
         c.engine.currentTime = 20
@@ -180,8 +177,7 @@ final class PlaybackRecoveryTests: XCTestCase {
 
     /// The book's second file (book time 100–200) playing at 30 into the file.
     private func bookFile2At30(_ c: PlaybackController) throws {
-        c.playbackType = .audiobook(book)
-        c.currentLongFormFileIndex = 2
+        c.playbackType = .audiobook(book(loaded: 2))
         c.longFormAPIClient = .stubbed()
         playingAndStuck(c, at: 30)
     }

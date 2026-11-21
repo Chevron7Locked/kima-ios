@@ -69,22 +69,14 @@ extension PlaybackController {
 
     /// Called when the current audiobook file finishes.
     func handleAudiobookFileEnded(autoplay: Bool = true) {
-        guard case .audiobook(let session) = playbackType else { return }
-        guard let currentFile = session.fileByIndex(currentLongFormFileIndex) else {
+        guard let (advanced, session) = updateBook({ $0.advanceFile() }) else { return }
+        // No file after the loaded one (or none loaded): the book is finished.
+        guard let nextFile = advanced else {
             finishAudiobook(session: session)
             return
         }
-
-        if session.isLastFile(currentFile) {
-            finishAudiobook(session: session)
-        } else if let nextFile = session.nextFile(after: currentFile) {
-            currentLongFormFileIndex = nextFile.index
-            let endClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-            loadStream(claim: endClaim, autoplay: autoplay, seekTo: { nil },
-                       afterLoad: { [weak self] in self?.nowPlayingHook?() }) { source in
-                await source.playableURL(bookId: session.bookId, index: nextFile.index)
-            }
-        }
+        loadBookFile(nextFile, of: session, autoplay: autoplay, seekTo: { nil },
+                     afterLoad: { [weak self] in self?.nowPlayingHook?() })
     }
 
     /// Called when the current podcast episode finishes. Plays what the server says comes next: the show's next

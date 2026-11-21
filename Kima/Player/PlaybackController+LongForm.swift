@@ -31,7 +31,7 @@ extension PlaybackController {
         lastSavedProgressTime = resumeTime
 
         engine.claimAudioSession(mode: .spokenAudio)
-        loadBookPosition(bookTime: { resumeTime }, session: session, autoplay: true)
+        loadBookPosition(bookTime: { resumeTime }, autoplay: true)
 
         startProgressTimer()
         startResignObserver()
@@ -148,18 +148,14 @@ extension PlaybackController {
         playMeter.breakChain()
         finishedLongFormId = nil   // seeking in a finished book or episode means listening again
         switch playbackType {
-        case .audiobook(let session):
-            let (file, fileTime) = session.locate(bookTime: seconds)
-            if file.index != currentLongFormFileIndex {
-                // Cross-file seek — reload the new file at fileTime.
-                currentLongFormFileIndex = file.index
-                let shouldAutoplay = engine.isPlaying || engine.status == .buffering
-                let seekClaim = engine.claimLoad()  // staleness guard — see loadCurrentTrack
-                loadStream(claim: seekClaim, autoplay: shouldAutoplay, seekTo: { fileTime }) { source in
-                    await source.playableURL(bookId: session.bookId, index: file.index)
-                }
+        case .audiobook:
+            guard let (load, session) = updateBook({ $0.load(at: seconds) }) else { return }
+            if load.isSameFile {
+                engine.seek(to: load.fileTime)
             } else {
-                engine.seek(to: fileTime)
+                // Cross-file seek — reload the new file at its time.
+                let shouldAutoplay = engine.isPlaying || engine.status == .buffering
+                loadBookFile(load.file, of: session, autoplay: shouldAutoplay, seekTo: { load.fileTime })
             }
         case .podcastEpisode:
             engine.seek(to: seconds)
@@ -191,8 +187,8 @@ extension PlaybackController {
             return  // music progress goes through PlaybackSyncCoordinator
 
         case .audiobook(let session):
-            guard let file = session.fileByIndex(currentLongFormFileIndex) else { return }
-            let bookTime = file.startOffset + engine.currentTime
+            guard session.loadedFile != nil else { return }
+            let bookTime = session.bookTime(engineTime: engine.currentTime)
             guard abs(bookTime - lastSavedProgressTime) > 0.5 else { return }
             lastSavedProgressTime = bookTime
             enqueueProgressSave {

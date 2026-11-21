@@ -96,10 +96,6 @@ final class PlaybackController {
     /// What content type is currently playing. Views observe this to adapt controls.
     var playbackType: LongFormPlaybackType = .track
 
-    /// 1-based `AudiobookTrack.index` of the file currently loaded in AVPlayer.
-    /// Used for book-absolute time conversion and file-advance logic.
-    var currentLongFormFileIndex: Int = 0
-
     /// Minimal metadata for the lock screen when `currentTrack == nil` (long-form).
     var longFormNowPlayingMeta: LongFormNowPlayingMeta?
 

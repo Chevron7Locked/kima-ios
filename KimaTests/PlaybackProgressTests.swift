@@ -13,14 +13,14 @@ final class PlaybackProgressTests: XCTestCase {
     }
 
     private var oneFileBook: BookSession {
-        BookSession(bookId: "b", totalDuration: 100, files: [AudiobookTrack(index: 1, startOffset: 0, duration: 100)])
+        BookSession(bookId: "b", totalDuration: 100, files: [AudiobookTrack(index: 1, startOffset: 0, duration: 100)],
+                    loadedFileIndex: 1)
     }
 
     private func pausedBook() -> PlaybackController {
         StubURLProtocol.handler = { _ in (200, Data("{}".utf8)) }
         let c = controller()
         c.playbackType = .audiobook(oneFileBook)
-        c.currentLongFormFileIndex = 1
         c.longFormAPIClient = .stubbed()
         c.engine.status = .paused
         return c

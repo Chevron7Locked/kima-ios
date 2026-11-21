@@ -43,7 +43,7 @@ extension PlaybackController {
 
     /// Where a rebuild restarts, in `rebuildCurrentItem` units: seconds into the track or episode,
     /// seconds into the whole audiobook. A load that failed before playing restarts where it was asked to.
-    /// An audiobook's value reads `currentLongFormFileIndex`, which the loaders set before their
+    /// An audiobook's value reads the session's loaded file, which the loaders move before their
     /// async hop: a read deferred past a file change pairs the new file's offset with the old file's time.
     var recoveryPoint: Double {
         let engineTime = engine.pendingSeek ?? engine.currentTime
@@ -53,7 +53,7 @@ extension PlaybackController {
         case .podcastEpisode:
             return engineTime
         case .audiobook(let session):
-            return (session.fileByIndex(currentLongFormFileIndex)?.startOffset ?? 0) + engineTime
+            return session.bookTime(engineTime: engineTime)
         }
     }
 

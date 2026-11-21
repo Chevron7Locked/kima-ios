@@ -13,8 +13,8 @@ final class PlaybackLongFormTests: XCTestCase {
         let c = makeController()
         c.playbackType = .audiobook(BookSession(bookId: "b", totalDuration: 200,
             files: [AudiobookTrack(index: 1, startOffset: 0, duration: 100),
-                    AudiobookTrack(index: 2, startOffset: 100, duration: 100)]))
-        c.currentLongFormFileIndex = 1
+                    AudiobookTrack(index: 2, startOffset: 100, duration: 100)],
+            loadedFileIndex: 1))
         c.longFormAPIClient = .stubbed()
         c.lastSavedProgressTime = 50
         StubURLProtocol.handler = { _ in (200, Data("{}".utf8)) }

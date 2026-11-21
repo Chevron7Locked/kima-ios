@@ -32,10 +32,7 @@ extension PlaybackController {
     var currentTime: Double {
         switch playbackType {
         case .audiobook(let session):
-            guard let file = session.fileByIndex(currentLongFormFileIndex) else {
-                return engine.currentTime
-            }
-            return file.startOffset + engine.currentTime
+            return session.bookTime(engineTime: engine.currentTime)
         case .podcastEpisode, .track:
             return engine.currentTime
         }

@@ -30,9 +30,7 @@ extension PlaybackController {
 
         case .audiobook(let session):
             // Last file finishing = book done — nothing to warm.
-            guard let currentFile = session.fileByIndex(currentLongFormFileIndex),
-                  !session.isLastFile(currentFile),
-                  let nextFile = session.nextFile(after: currentFile) else { return }
+            guard let nextFile = session.fileAfterLoaded else { return }
             warmNextStream(epoch: epoch, logLabel: "book file=\(nextFile.index)") { source in
                 await source.playableURL(bookId: session.bookId, index: nextFile.index)
             }

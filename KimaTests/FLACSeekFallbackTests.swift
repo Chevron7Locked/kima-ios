@@ -29,9 +29,8 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         engine.onStalled = { handedToTheLadder += 1 }
         let stateChanges = countStateChanges()
         engine.seek(to: 60)
-        await waitUntil(5) { self.engine.isRestartedStream }
-        XCTAssertTrue(engine.isRestartedStream, "the skip restarted the stream", file: file, line: line)
-        await waitUntil(10) { !self.engine.isRestartedStream && self.engine.status == .playing }
+        await waitUntil(5, message: "the skip never restarted the stream", file: file, line: line) { self.engine.isRestartedStream }
+        await waitUntil(10, file: file, line: line) { !self.engine.isRestartedStream && self.engine.status == .playing }
         XCTAssertEqual(handedToTheLadder, 0, file: file, line: line)
         XCTAssertEqual(stateChanges(), 0, "the shown state flickered across the fallback", file: file, line: line)
         XCTAssertEqual(engine.status, .playing, file: file, line: line)
@@ -46,8 +45,7 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         try await assertTheSkipFallsBackToTheWholeTrack()
 
         let reads = RangeFileURLProtocol.ranges.count
-        engine.seek(to: 30)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 30)
         XCTAssertFalse(engine.isRestartedStream)
         XCTAssertEqual(RangeFileURLProtocol.ranges.count, reads, "the next skip tried to restart again")
     }
@@ -71,12 +69,10 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         server.delay = { _ in 30 }   // the whole track's reads hang too (past the test; teardown doesn't wait on them)
         await skipSwapped(to: 60)
         XCTAssertTrue(engine.isPlaying, "precondition: the skip shows playing")
-        await waitUntil(3) { !self.engine.isRestartedStream }
-        XCTAssertFalse(engine.isRestartedStream, "the restart's stall fell back to the whole track")
+        await waitUntil(3, message: "the restart's stall never fell back to the whole track") { !self.engine.isRestartedStream }
         XCTAssertTrue(engine.isPlaying, "the hold dropped before the fallback had its chance")
         // One more 1 s stall window, then the give-up; 3 s leaves room for the main-actor hops under load.
-        await waitUntil(3) { !self.engine.isPlaying }
-        XCTAssertFalse(engine.isPlaying, "still shown playing with no sound")
+        await waitUntil(3, message: "still shown playing with no sound") { !self.engine.isPlaying }
         XCTAssertEqual(engine.status, .error)
         XCTAssertEqual(stalls, 1, "the dead track reaches the recovery ladder once")
     }
@@ -85,9 +81,8 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
     /// and stays silent.
     private func assertTheSkipFallsBackSilently(file: StaticString = #filePath, line: UInt = #line) async throws {
         engine.seek(to: 60)
-        await waitUntil(5) { self.engine.isRestartedStream }
-        await waitUntil(10) { !self.engine.isRestartedStream }
-        XCTAssertFalse(engine.isRestartedStream, "precondition: the whole track came back", file: file, line: line)
+        await waitUntil(5, file: file, line: line) { self.engine.isRestartedStream }
+        await waitUntil(10, file: file, line: line) { !self.engine.isRestartedStream }
         try await assertStaysSilentOnceReady(after: "the fallback", file: file, line: line)
     }
 
@@ -122,11 +117,9 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         await waitUntil(10) { self.engine.player.currentItem?.status == .readyToPlay && self.engine.player.timeControlStatus == .playing }
         try await Task.sleep(for: Self.settle)
         engine.player.pause()   // the drop's pause, ahead of its failure
-        await waitUntil(5) { self.engine.status == .paused }
-        XCTAssertEqual(engine.status, .paused, "precondition: the player's pause shows")
+        await waitUntil(5, message: "precondition: the player's pause never showed") { self.engine.status == .paused }
         engine.handleItemStatus(.failed, item: try XCTUnwrap(engine.player.currentItem), generation: engine.generation)
-        await waitUntil(10) { !self.engine.isRestartedStream && self.engine.status == .playing }
-        XCTAssertEqual(engine.status, .playing, "the drop stopped playback the user wanted")
+        await waitUntil(10, message: "the drop stopped playback the user wanted") { !self.engine.isRestartedStream && self.engine.status == .playing }
         let heard = try await heard()
         XCTAssertGreaterThan(heard, 50, "played on near the skip: \(heard)")
     }

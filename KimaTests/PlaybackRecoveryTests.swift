@@ -238,8 +238,7 @@ final class PlaybackRecoveryTests: XCTestCase {
     func testABackSkipPastTheTopDuringTheRebuildsTicketFetchRestartsAtTheTop() async throws {
         let c = try await skipDuringRebuildFetch(musicAt42) { c in
             c.skip(by: -60)  // the -30 s button twice: 42 back to the top
-            await self.waitUntil { c.skipTask == nil }
-            XCTAssertNil(c.skipTask, "the debounced skip has landed")
+            await self.waitUntil(message: "the debounced skip never landed") { c.skipTask == nil }
         }
         XCTAssertNil(c.engine.pendingSeek, "the top, not the position the track failed at")
     }

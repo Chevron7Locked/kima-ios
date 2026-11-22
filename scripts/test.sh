@@ -84,7 +84,8 @@ if grep -q "Restarting after unexpected exit, crash, or test timeout" "$LOG"; th
 fi
 # A test that started and never printed a result is the hang itself (key on the quoted
 # identifier: the class-space-method name means $3 alone is shared across a whole class).
-hung=$(awk '/Test Case \047/ { id = $0; sub(/^Test Case \047/, "", id); sub(/\047.*$/, "", id)
+# Unanchored: a stub's stderr can land mid-line ahead of "Test Case '…' passed".
+hung=$(awk '/Test Case \047/ { id = $0; sub(/^.*Test Case \047/, "", id); sub(/\047.*$/, "", id)
      if ($0 ~ /started\./) t[id] = 1; else delete t[id] } END { for (n in t) print "  " n }' "$LOG")
 if [ -n "$hung" ]; then
     echo "hint: no result ever printed for these — an unbounded wait hung the runner (polling waits ride waitUntil, KimaTests/Support):" >&2

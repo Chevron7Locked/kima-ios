@@ -15,7 +15,7 @@ KeychainLoginSnapshot exists for; only the suite-level ritual fires.
 2. Unbounded poll loops. A `while <condition> { await Task.yield() }` has no deadline: when
 the condition stalls it hangs the runner, and xcodebuild blames the class with no result —
 one full-suite run went to log forensics over exactly this (ticket 15 close-out). Support's
-waitUntil polls with a deadline; its contract is to assert the fact after waiting. The proxy
+waitUntil polls with a deadline and fails the test when it runs out. The proxy
 is the shape: a `while` line yielding on the same or next line. A lone `await Task.yield()`
 (one-shot main-actor flush) stays legal.
 
@@ -94,7 +94,7 @@ def main() -> int:
     if poll_offenders:
         print("posture violation: this while-loop polls with no deadline — when the condition "
               "stalls it hangs the runner and xcodebuild blames the class. Ride waitUntil "
-              "(KimaTests/Support/WaitUntil.swift, 2 s deadline) and assert the fact after:",
+              "(KimaTests/Support/WaitUntil.swift, 2 s deadline; a timeout fails the test):",
               file=sys.stderr)
         for path, sites in poll_offenders:
             print(f"  {path.relative_to(ROOT.parent)}:{', '.join(map(str, sites))}", file=sys.stderr)

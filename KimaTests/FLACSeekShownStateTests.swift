@@ -65,7 +65,6 @@ final class FLACSeekShownStateTests: FLACClockTestCase {
         try await Task.sleep(for: Self.settle)
         engine.player.pause()
         await waitUntil(5) { !self.engine.isPlaying }
-        XCTAssertFalse(engine.isPlaying)
         XCTAssertEqual(engine.status, .paused)
     }
 

@@ -8,6 +8,9 @@ violation, not a judgement call. Two passes, both hard:
    two places regardless of length. A named helper copied verbatim can never be boilerplate;
    this is the shape a MIN_LINES block floor always misses (three copies of a 6-line waitUntil
    shipped past pass 1 before it earned pass 2).
+3. Waits — pass 1 at MIN_WAIT_LINES, kept only when the block holds a wait (`waitUntil`,
+   `Self.settle`) and pass 1 doesn't already report it. Short wait-then-assert sequences are the shape this repo keeps copying under
+   the 8-line floor (ticket 25: a 4-line "skip, wait, wait, assert silent" copy shipped to review).
 
 Normalization drops comments and indentation, so a copy with reworded comments still counts —
 that is the shape of every violation this repo has actually shipped. Findings exit 1 with the
@@ -26,6 +29,8 @@ SCAN_DIRS = ["Kima", "KimaTests", "KimaUITests"]
 MIN_LINES = 8        # normalized code lines shared verbatim; below this, boilerplate dominates
 BOILERPLATE_CAP = 60  # a line in more files than this is Swift furniture, not duplication
 MAX_OFFSETS = 4000   # safety cap on diagonals walked per pair
+MIN_WAIT_LINES = 4   # pass 3's floor: a block this long counts only if it holds a wait
+WAIT = re.compile(r"\bwaitUntil\b|\bSelf\.settle\b")   # `waitUntil {` (no args) counts too
 MIN_HELPER_LINES = 3  # normalized lines a func must span to count as a helper, not a stub
 
 # Known debt: copies that predate the helper pass, baselined like check-test-posture.py's —
@@ -146,11 +151,9 @@ def place(lines, index, length):
     return (lines[index][0], lines[min(index + length - 1, len(lines) - 1)][0])
 
 
-def main():
-    files = sorted(p for d in SCAN_DIRS for p in (ROOT / d).rglob("*.swift"))
-    rel_of = [str(p.relative_to(ROOT)) for p in files]
-    code = [normalized_lines(p) for p in files]
-
+def duplicated_blocks(code, min_len, keep=lambda lines, pair: True):
+    """Merged pairs of places sharing a maximal run of >= min_len identical normalized lines;
+    `keep` filters each run, by its lines and its pair of places, before any merging."""
     # Intern lines to ints; index line -> files, and line -> positions per file.
     ids = {}
     tokens = []
@@ -167,7 +170,7 @@ def main():
             positions[t][fi].append(idx)
         tokens.append(toks)
 
-    # Candidate file pairs: those sharing at least MIN_LINES distinct non-boilerplate lines.
+    # Candidate file pairs: those sharing at least min_len distinct non-boilerplate lines.
     shared = defaultdict(set)  # (fi, fj) -> {token}
     for t, fs in owners.items():
         fs = sorted(fs)
@@ -179,6 +182,11 @@ def main():
 
     findings = set()
 
+    def add(fi, start, fj, start_j, length):
+        pair = ((fi,) + place(code[fi], start, length), (fj,) + place(code[fj], start_j, length))
+        if keep([ln for _, ln in code[fi][start:start + length]], pair):
+            findings.add(pair)
+
     # Same-file pass: a region repeated within one file (offset keeps it from matching
     # itself or its near neighbours).
     for fi, toks in enumerate(tokens):
@@ -189,17 +197,16 @@ def main():
         for pos in local.values():
             for ta in pos:
                 for tb in pos:
-                    if tb - ta >= MIN_LINES * 2:
+                    if tb - ta >= min_len * 2:
                         offsets.add(tb - ta)
                     if len(offsets) > MAX_OFFSETS:
                         break
         for offset in offsets:
-            for start, length in runs_on_diagonal(toks, toks, offset, MIN_LINES):
-                findings.add(((fi,) + place(code[fi], start, length),
-                              (fi,) + place(code[fi], start + offset, length)))
+            for start, length in runs_on_diagonal(toks, toks, offset, min_len):
+                add(fi, start, fi, start + offset, length)
 
     for (fi, fj), toks in shared.items():
-        if len(toks) < MIN_LINES:
+        if len(toks) < min_len:
             continue
         a, b = tokens[fi], tokens[fj]
         offsets = set()
@@ -207,7 +214,7 @@ def main():
             for ta in positions[t][fi]:
                 for tb in positions[t][fj]:
                     off = tb - ta
-                    if fi == fj and off < MIN_LINES * 2:
+                    if fi == fj and off < min_len * 2:
                         continue  # same-file matches only when the regions are apart
                     offsets.add(off)
                     if len(offsets) > MAX_OFFSETS:
@@ -215,29 +222,47 @@ def main():
             if len(offsets) > MAX_OFFSETS:
                 break
         for offset in offsets:
-            for start, length in runs_on_diagonal(a, b, offset, MIN_LINES):
-                pa = place(code[fi], start, length)
-                pb = place(code[fj], start + offset, length)
-                findings.add(((fi,) + pa, (fj,) + pb))
+            for start, length in runs_on_diagonal(a, b, offset, min_len):
+                add(fi, start, fj, start + offset, length)
+
+    return _merge(findings, min_len) if findings else []
+
+
+def wait_sequences(code, blocks):
+    """Pass 3: runs of MIN_WAIT_LINES+ holding a wait, minus runs inside a pass-1 block. The
+    covered runs drop before merging, so one can't widen a neighbouring short run into a
+    region that repeats pass 1's report."""
+    return duplicated_blocks(code, MIN_WAIT_LINES, lambda lines, pair: (
+        any(WAIT.search(ln) for ln in lines) and not any(_within(pair, b) for b in blocks)))
+
+
+def main():
+    files = sorted(p for d in SCAN_DIRS for p in (ROOT / d).rglob("*.swift"))
+    rel_of = [str(p.relative_to(ROOT)) for p in files]
+    code = [normalized_lines(p) for p in files]
+
+    findings = duplicated_blocks(code, MIN_LINES)
+    wait_findings = wait_sequences(code, findings)
 
     helpers, debt_notes = identical_helpers(files, rel_of)
     for name, places in debt_notes:
         print(f"known debt (baselined, do not add): func {name} at "
               + ", ".join(f"{f}:{no}" for f, no in places))
 
-    if not findings and not helpers:
-        print(f"no duplicated blocks ({MIN_LINES}+ identical code lines) and no identical "
-              f"helper definitions across {len(files)} files in {'/'.join(SCAN_DIRS)}")
+    if not findings and not helpers and not wait_findings:
+        print(f"no duplicated blocks ({MIN_LINES}+ identical code lines, {MIN_WAIT_LINES}+ with a "
+              f"wait) and no identical helper definitions across {len(files)} files in "
+              f"{'/'.join(SCAN_DIRS)}")
         return 0
 
     print("duplicated code is a violation, not a judgement call "
           "(CODING_STANDARDS.md §Code smells):")
-    if findings:
-        findings = _merge(findings)
-        print(f"  {len(findings)} duplicated block(s):")
-        for pair in sorted(findings):
-            (fi, s1, e1), (fj, s2, e2) = pair
-            print(f"    {rel_of[fi]}:{s1}-{e1}, {rel_of[fj]}:{s2}-{e2}")
+    for pairs, what in ((findings, "duplicated block(s)"),
+                        (wait_findings, f"duplicated wait sequence(s) ({MIN_WAIT_LINES}+ lines holding a wait)")):
+        if pairs:
+            print(f"  {len(pairs)} {what}:")
+            for (fi, s1, e1), (fj, s2, e2) in sorted(pairs):
+                print(f"    {rel_of[fi]}:{s1}-{e1}, {rel_of[fj]}:{s2}-{e2}")
     if helpers:
         print(f"  {len(helpers)} identical helper definition(s) (same name and body, any length):")
         for name, places in helpers:
@@ -246,9 +271,9 @@ def main():
     return 1
 
 
-def _merge(findings):
+def _merge(findings, min_len):
     """A block whose tail continues on a neighbouring diagonal is one region: merge pairs
-    whose places in the same file touch or overlap (gap under MIN_LINES)."""
+    whose places in the same file touch or overlap (gap under min_len)."""
     merged = [list(f) for f in findings]
     changed = True
     while changed:
@@ -258,7 +283,7 @@ def _merge(findings):
             cur = merged.pop()
             rest = []
             for other in merged:
-                if _adjacent(cur, other):
+                if _adjacent(cur, other, min_len):
                     cur = _union(cur, other)
                     changed = True
                 else:
@@ -269,12 +294,17 @@ def _merge(findings):
     return [tuple(sorted(f)) for f in merged]
 
 
-def _adjacent(a, b):
+def _adjacent(a, b, min_len):
     for (fa, sa, ea) in a:
         for (fb, sb, _) in b:
-            if fa == fb and sa - MIN_LINES <= sb <= ea + MIN_LINES:
+            if fa == fb and sa - min_len <= sb <= ea + min_len:
                 return True
     return False
+
+
+def _within(a, b):
+    """Every place of `a` lies inside a place of `b` in the same file."""
+    return all(any(fa == fb and sb <= sa and ea <= eb for fb, sb, eb in b) for fa, sa, ea in a)
 
 
 def _union(a, b):

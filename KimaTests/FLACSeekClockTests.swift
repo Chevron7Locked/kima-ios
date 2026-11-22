@@ -9,13 +9,27 @@ import XCTest
 @MainActor
 final class FLACSeekClockTests: FLACClockTestCase {
 
+    /// A load resuming at 50 whose FLAC header read is still out (the caller set `server.delay`).
+    private func resumingAt50WithTheHeaderOut() async {
+        engine.load(url: server.url, autoplay: true, seekTo: 50)
+        await waitUntil(10) { self.engine.isFLACSeekInFlight }   // the resume waits on the header
+    }
+
+    /// Playing, skipped to `seconds` by a restarted stream that now plays; returns its frame.
+    private func playingSkipped(to seconds: Double) async throws -> FLACStart {
+        await playing()
+        await skipLanded(to: seconds)
+        let start = try XCTUnwrap(engine.flacSeek.loader).start
+        await waitUntil(10) { self.engine.status == .playing }
+        return start
+    }
+
     func testAfterASkipTheShownTimeIsTheTimeHeard() async throws {
         await playing()
         XCTAssertEqual(engine.status, .playing)
 
         for target in [60.0, 25.0, 75.0] {
-            engine.seek(to: target)
-            await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+            await skipLanded(to: target)
             await waitUntil(10) { self.engine.status == .playing && self.engine.player.currentItem?.status == .readyToPlay }
             try await Task.sleep(for: .seconds(2.2))   // two ticks: currentTime is the 1 Hz mirror
             let heard = try await heard()
@@ -38,10 +52,8 @@ final class FLACSeekClockTests: FLACClockTestCase {
     /// Previous / restart seek to 0: after a skip, that's the track's real start again.
     func testRestartAfterASkipPlaysFromTheTop() async throws {
         await playing()
-        engine.seek(to: 70)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
-        engine.seek(to: 0)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 70)
+        await skipLanded(to: 0)
         await waitUntil(10) { self.engine.status == .playing }
         try await assertHeardAndShown(at: 1.5)
         XCTAssertEqual(engine.duration, 90, accuracy: 0.1)
@@ -51,8 +63,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
     func testTheLastSkipWins() async throws {
         await playing()
         engine.seek(to: 30)
-        engine.seek(to: 70)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 70)
         await waitUntil(10) { self.engine.status == .playing }
         try await assertHeardAndShown(at: 71.5)
     }
@@ -74,8 +85,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
         try wav.start()
         defer { wav.stop() }
         await playing(wav.url)
-        engine.seek(to: 60)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 60)
         XCTAssertNil(engine.flacSeek.loader)
         XCTAssertEqual(engine.flacSeek.startOffset, 0)
         try await assertHeardAndShown(at: 61.5)
@@ -88,8 +98,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
         try wav.start()
         defer { wav.stop() }
         await playing(wav.url)
-        engine.seek(to: 60)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 60)
         XCTAssertFalse(wav.ranges.contains(0...16_383), "asked for a FLAC header: \(wav.ranges)")
     }
 
@@ -98,12 +107,9 @@ final class FLACSeekClockTests: FLACClockTestCase {
     func testASkipDuringAResumePlaysFromTheSkip() async throws {
         server.delay = { $0 == 0...16_383 ? 1.5 : 0 }
         server.refuse = { $0 == 0...16_383 }
-        engine.load(url: server.url, autoplay: true, seekTo: 50)
-        await waitUntil(10) { self.engine.isFLACSeekInFlight }
-        XCTAssertTrue(engine.isFLACSeekInFlight, "the resume should be waiting on the header")
+        await resumingAt50WithTheHeaderOut()
         engine.seek(to: 20)
         await waitUntil(10) { self.engine.status == .playing }
-        XCTAssertEqual(engine.status, .playing)
         XCTAssertNil(engine.pendingSeek)
         XCTAssertNil(engine.flacSeek.loader)
     }
@@ -117,13 +123,11 @@ final class FLACSeekClockTests: FLACClockTestCase {
             return true
         }
         await playing()
-        engine.seek(to: 60)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 60)
         XCTAssertTrue(refused)
         XCTAssertNil(engine.flacSeek.loader, "the check failed: the item seeks as before")
 
-        engine.seek(to: 30)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 30)
         XCTAssertNotNil(engine.flacSeek.loader, "the second skip found the FLAC")
         await waitUntil(10) { self.engine.status == .playing }
         let heard = try await heard()
@@ -137,8 +141,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
         // AVPlayer reports its earlier 1× for a moment after the start: let the new speed settle.
         try await Task.sleep(for: .milliseconds(500))
         XCTAssertEqual(engine.player.rate, 1.5, "precondition: playing at 1.5×")
-        engine.seek(to: 40)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 40)
         XCTAssertNotNil(engine.flacSeek.loader)
         await waitUntil(10) { self.engine.status == .playing && self.engine.player.rate > 0 }
         try await Task.sleep(for: .seconds(1))
@@ -157,16 +160,11 @@ final class FLACSeekClockTests: FLACClockTestCase {
     /// After a skip the item starts mid-track, so a skip back before that start can only restart the
     /// stream. When that fails, the clock shows where the sound really is, not the skip asked for.
     func testABackwardSkipThatCantRestartShowsWhereItPlays() async throws {
-        await playing()
-        engine.seek(to: 60)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
-        let start = try XCTUnwrap(engine.flacSeek.loader).start
-        await waitUntil(10) { self.engine.status == .playing }
+        let start = try await playingSkipped(to: 60)
         engine.pause()   // paused, the 1 Hz clock can't correct what the skip shows
         await waitUntil(5) { self.engine.status == .paused }
         server.refuse = { $0.lowerBound < start.byte }   // finding an earlier frame fails
-        engine.seek(to: 20)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 20)
         try await Task.sleep(for: .milliseconds(300))
         XCTAssertEqual(engine.currentTime, 60, accuracy: 0.25, "the stream's start is as early as it goes")
 
@@ -198,8 +196,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
         var readies = 0
         engine.onReady = { readies += 1 }
         await playing()
-        engine.seek(to: 60)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 60)
         XCTAssertNotNil(engine.flacSeek.loader)
         await waitUntil(10) { self.engine.status == .playing && self.engine.player.currentItem?.status == .readyToPlay }
         try await Task.sleep(for: .milliseconds(300))
@@ -209,9 +206,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
     /// A skip while the resume's own restart is out, both finding their frames: it plays from the skip.
     func testASkipDuringAResumeRestartPlaysFromTheSkip() async throws {
         server.delay = { $0 == 0...16_383 ? 1 : 0 }
-        engine.load(url: server.url, autoplay: true, seekTo: 50)
-        await waitUntil(10) { self.engine.isFLACSeekInFlight }
-        XCTAssertTrue(engine.isFLACSeekInFlight, "the resume should be waiting on the header")
+        await resumingAt50WithTheHeaderOut()
         engine.seek(to: 20)
         await waitUntil(10) { !self.engine.isFLACSeekInFlight && self.engine.status == .playing }
         try await assertHeardAndShown(at: 21.5)
@@ -237,11 +232,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
         RangeFileURLProtocol.serve(try FLACClockFixture.data())
         engine.clear()
         engine = makeEngine(sessions: RangeFileURLProtocol.Factory())
-        await playing()
-        engine.seek(to: 60)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
-        let start = try XCTUnwrap(engine.flacSeek.loader).start
-        await waitUntil(10) { self.engine.status == .playing }
+        let start = try await playingSkipped(to: 60)
         let heard = try await heard()
         XCTAssertEqual(heard, 60.5, accuracy: 1.2, "landed at \(heard)")
 
@@ -255,8 +246,7 @@ final class FLACSeekClockTests: FLACClockTestCase {
         await playing()
         engine.pause()
         await waitUntil(5) { self.engine.status == .paused }
-        engine.seek(to: 40)
-        await waitUntil(5) { !self.engine.isFLACSeekInFlight }
+        await skipLanded(to: 40)
         try await Task.sleep(for: .seconds(1))
         XCTAssertEqual(engine.status, .paused)
         XCTAssertFalse(engine.isPlaying)

@@ -16,8 +16,7 @@ final class VibeCancellationTests: XCTestCase {
         let c = controller()
         c.queueOrigin = .songPath
         let asker = Task { await c.confirmVibeReplace(with: .blend) }
-        await waitUntil { c.vibeReplacePrompt != nil }
-        XCTAssertNotNil(c.vibeReplacePrompt, "the replace question never opened")
+        await waitUntil(message: "the replace question never opened") { c.vibeReplacePrompt != nil }
         asker.cancel()
         let answer = await asker.value
         XCTAssertFalse(answer)
@@ -44,8 +43,7 @@ final class VibeCancellationTests: XCTestCase {
         let vm = VibeMapViewModel()
         var answer: Bool?
         vm.launch { answer = await c.confirmVibeReplace(with: .playSimilar) }
-        await waitUntil { c.vibeReplacePrompt != nil }
-        XCTAssertNotNil(c.vibeReplacePrompt, "the replace question never opened")
+        await waitUntil(message: "the replace question never opened") { c.vibeReplacePrompt != nil }
         vm.cancelOperations()
         await waitUntil { answer != nil }
         XCTAssertEqual(answer, false)
@@ -56,15 +54,6 @@ final class VibeCancellationTests: XCTestCase {
 
     private let similarJSON = Data(#"{"sourceTrackId":"a","tracks":[{"id":"x","title":"t","duration":10,"album":{"id":"al","title":"x"},"artist":{"id":"ar","name":"n"},"similarity":0.5}]}"#.utf8)
 
-    /// Yields until `done` holds, failing after two seconds instead of hanging.
-    private func waitFor(_ what: String, _ done: () -> Bool) async {
-        let deadline = Date.now.addingTimeInterval(2)
-        while !done() {
-            guard Date.now < deadline else { return XCTFail("timed out waiting for \(what)") }
-            await Task.yield()
-        }
-    }
-
     /// Starts the vibe button's fetch and, while it is in flight, has the map start a song path.
     private func toggleOvertakenBySongPath(_ c: PlaybackController) async throws -> Task<Void, Never> {
         c.queue = [try Track.fixture("a")]
@@ -73,10 +62,10 @@ final class VibeCancellationTests: XCTestCase {
         let body = similarJSON
         StubURLProtocol.handler = { _ in _ = gate.wait(timeout: .now() + 2); return (200, body) }
         let toggle = Task { await c.toggleVibeMode(client: .stubbed()) }
-        await waitFor("the fetch") { !StubURLProtocol.requests.isEmpty }
+        await waitUntil(message: "the fetch never started") { !StubURLProtocol.requests.isEmpty }
         c.queueOrigin = .songPath
         gate.signal()
-        await waitFor("the question") { c.vibeReplacePrompt != nil }
+        await waitUntil(message: "the replace question never opened") { c.vibeReplacePrompt != nil }
         return toggle
     }
 
@@ -133,8 +122,7 @@ final class VibeCancellationTests: XCTestCase {
         let vm = VibeMapViewModel()
         vm.panel = .blend
         let run = Task { await vm.runBlend(picks: self.picks(), client: .stubbed()) }
-        await waitUntil { !StubURLProtocol.requests.isEmpty }
-        XCTAssertFalse(StubURLProtocol.requests.isEmpty, "the blend request never fired")
+        await waitUntil(message: "the blend request never fired") { !StubURLProtocol.requests.isEmpty }
         vm.panel = nil
         vm.panel = .blend
         await run.value
@@ -167,8 +155,7 @@ final class VibeCancellationTests: XCTestCase {
         }
         let sync = LibrarySyncModel(pollInterval: .milliseconds(10))
         sync.start(client: .stubbed())
-        await waitUntil { StubURLProtocol.requests.count >= 4 }
-        XCTAssertTrue(StubURLProtocol.requests.count >= 4, "scan polling never started")
+        await waitUntil(message: "scan polling never started") { StubURLProtocol.requests.count >= 4 }
         sync.cancel()
         try await Task.sleep(for: .milliseconds(100))
         let settled = StubURLProtocol.requests.count
@@ -185,8 +172,7 @@ final class VibeCancellationTests: XCTestCase {
         var sync: LibrarySyncModel? = LibrarySyncModel(pollInterval: .milliseconds(10))
         weak let weakSync = sync
         sync?.start(client: .stubbed())
-        await waitUntil { StubURLProtocol.requests.count >= 3 }
-        XCTAssertTrue(StubURLProtocol.requests.count >= 3, "scan polling never started")
+        await waitUntil(message: "scan polling never started") { StubURLProtocol.requests.count >= 3 }
         sync = nil
         try await Task.sleep(for: .milliseconds(100))
         XCTAssertNil(weakSync)

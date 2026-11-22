@@ -181,8 +181,7 @@ final class StreamSourceTests: KeychainLoginTestCase {
         StubURLProtocol.handler = { _ in (200, Data(#"{"ticket":"st-9","expiresIn":14400}"#.utf8)) }
         let time = VirtualTime()
         _ = startedSource(clock: time.clock)
-        await waitUntil { ticketMints == 1 && !time.sleeps.isEmpty }
-        XCTAssertEqual(ticketMints, 1, "the head start is one mint at sign-in — no tap needed")
+        await waitUntil(message: "the head start is one mint at sign-in, no tap needed") { ticketMints == 1 && !time.sleeps.isEmpty }
         XCTAssertEqual(time.sleeps, [.seconds(7200)],
                        "the keeper sleeps exactly to the cache's renewal point: TTL/2 of a 4-hour ticket")
     }
@@ -224,9 +223,7 @@ final class StreamSourceTests: KeychainLoginTestCase {
         _ = startedSource(clock: time.clock)
         await waitUntil { ticketMints == 1 && !time.sleeps.isEmpty }
         NotificationCenter.default.post(name: .kimaAccessTokenRotated, object: nil)
-        await waitUntil { ticketMints == 2 }
-        XCTAssertEqual(ticketMints, 2,
-                       "the warm ticket follows the new token now — not when the old sleep ends hours later")
+        await waitUntil(message: "the warm ticket kept the old token until its sleep ends, hours later") { ticketMints == 2 }
     }
 
     func testRotationAfterStopDoesNothing() async {

@@ -46,8 +46,11 @@ final class AudiobookFileTests: XCTestCase {
     func testASeekWithinTheLoadedFileLoadsNothing() async {
         let c = playingFile1At40()
         c.seek(to: 70)
-        await waitUntil(0.3) { c.engine.player.currentItem != nil }
-        XCTAssertNil(c.engine.player.currentItem, "no new stream for a seek within the file")
+        // No new stream for a seek within the file. 0.3 s covers the load's one stub round trip: a
+        // cross-file seek planted here (to 130) loaded within it and failed (2026-11-22).
+        await waitUntil(0.3, message: "a seek within the file loaded a stream", expectTimeout: true) {
+            c.engine.player.currentItem != nil
+        }
         c.engine.currentTime = 70
         XCTAssertEqual(c.currentTime, 70)
     }

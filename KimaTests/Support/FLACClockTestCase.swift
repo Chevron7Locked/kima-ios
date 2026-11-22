@@ -34,11 +34,10 @@ class FLACClockTestCase: XCTestCase {
     /// measured bound: 500 ms caught the wrong start every run while it was a bug (2026-11-20).
     static let settle = Duration.milliseconds(500)
 
-    /// Once the current item is ready, the engine stays silent through `settle`: no rate, not shown
+    /// Once the current item is ready (a wait that runs out fails), the engine stays silent through `settle`: no rate, not shown
     /// playing. `step` names what would have started it, for the failure message.
     func assertStaysSilentOnceReady(after step: String, file: StaticString = #filePath, line: UInt = #line) async throws {
-        await waitUntil(10) { self.engine.player.currentItem?.status == .readyToPlay }
-        XCTAssertEqual(engine.player.currentItem?.status, .readyToPlay, "precondition: the item got ready", file: file, line: line)
+        await waitUntil(10, file: file, line: line) { self.engine.player.currentItem?.status == .readyToPlay }
         try await Task.sleep(for: Self.settle)
         XCTAssertEqual(engine.player.rate, 0, "playback started after \(step)", file: file, line: line)
         XCTAssertFalse(engine.isPlaying, "shown playing after \(step)", file: file, line: line)
@@ -63,11 +62,16 @@ class FLACClockTestCase: XCTestCase {
         engine.handleInterruption(.began, shouldResume: false)
     }
 
+    /// Skips to `seconds` and waits until the seek is done, by whichever path it took.
+    func skipLanded(to seconds: Double, file: StaticString = #filePath, line: UInt = #line) async {
+        engine.seek(to: seconds)
+        await waitUntil(5, file: file, line: line) { !self.engine.isFLACSeekInFlight }
+    }
+
     /// Skips to `seconds` and waits until the skip's stream is in (a FLAC skip swaps the item).
     func skipSwapped(to seconds: Double, file: StaticString = #filePath, line: UInt = #line) async {
         engine.seek(to: seconds)
-        await waitUntil(5) { self.engine.isRestartedStream && !self.engine.isFLACSeekInFlight }
-        XCTAssertTrue(engine.isRestartedStream, "precondition: the skip swapped the item", file: file, line: line)
+        await waitUntil(5, message: "precondition: the skip never swapped the item", file: file, line: line) { self.engine.isRestartedStream && !self.engine.isFLACSeekInFlight }
     }
 
     /// The position heard right now, read off the audio.

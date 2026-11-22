@@ -81,16 +81,22 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         XCTAssertEqual(stalls, 1, "the dead track reaches the recovery ladder once")
     }
 
+    /// Skips to 60 while stopped, whose restarted stream won't play: the whole track comes back
+    /// and stays silent.
+    private func assertTheSkipFallsBackSilently(file: StaticString = #filePath, line: UInt = #line) async throws {
+        engine.seek(to: 60)
+        await waitUntil(5) { self.engine.isRestartedStream }
+        await waitUntil(10) { !self.engine.isRestartedStream }
+        XCTAssertFalse(engine.isRestartedStream, "precondition: the whole track came back", file: file, line: line)
+        try await assertStaysSilentOnceReady(after: "the fallback", file: file, line: line)
+    }
+
     /// Paused, the skip's failed stream falls back quietly: nothing plays until the user's play.
     func testAFallBackWhilePausedStaysPaused() async throws {
         try await playingWithTheRestartAt60(.refuse)
         engine.pause()
         await waitUntil(5) { self.engine.status == .paused }
-        engine.seek(to: 60)
-        await waitUntil(5) { self.engine.isRestartedStream }
-        await waitUntil(10) { !self.engine.isRestartedStream && self.engine.player.currentItem?.status == .readyToPlay }
-        try await Task.sleep(for: Self.settle)
-        XCTAssertEqual(engine.player.rate, 0, "the fallback started playback")
+        try await assertTheSkipFallsBackSilently()
         XCTAssertEqual(engine.status, .paused)
         engine.play()
         await waitUntil(10) { self.engine.status == .playing }
@@ -104,11 +110,7 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         try await playingWithTheRestartAt60(.refuse)
         beginInterruption()
         engine.handleInterruption(.ended, shouldResume: false)
-        engine.seek(to: 60)
-        await waitUntil(5) { self.engine.isRestartedStream }
-        await waitUntil(10) { !self.engine.isRestartedStream && self.engine.player.currentItem?.status == .readyToPlay }
-        try await Task.sleep(for: Self.settle)
-        XCTAssertEqual(engine.player.rate, 0, "the fallback started playback")
+        try await assertTheSkipFallsBackSilently()
         XCTAssertEqual(engine.status, .blocked)
     }
 

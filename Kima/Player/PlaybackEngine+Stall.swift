@@ -9,6 +9,8 @@ import Foundation
 extension PlaybackEngine {
 
     /// The user asked for sound and none is coming yet: a load that hasn't started, or buffering.
+    /// A call stops it through the status (`.began` turns a running engine `.paused`), so this reads
+    /// the status, not `userWantsItRunning`; adding that would change what a ready during a call does.
     var isWaitingForAudio: Bool {
         wantsPlayback && (status == .loading || status == .buffering)
     }

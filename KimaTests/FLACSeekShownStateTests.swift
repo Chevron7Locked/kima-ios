@@ -75,10 +75,7 @@ final class FLACSeekShownStateTests: FLACClockTestCase {
         engine.pause()
         await waitUntil(5) { self.engine.status == .paused }
         await skipSwapped(to: 60)
-        await waitUntil(10) { self.engine.player.currentItem?.status == .readyToPlay }
-        try await Task.sleep(for: Self.settle)
-        XCTAssertEqual(engine.player.rate, 0)
-        XCTAssertFalse(engine.isPlaying)
+        try await assertStaysSilentOnceReady(after: "a paused skip")
         engine.play()
         await waitUntil(10) { self.engine.status == .playing }
         try await assertHeardAndShown(at: 61.5)

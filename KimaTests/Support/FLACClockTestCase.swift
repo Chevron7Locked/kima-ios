@@ -34,6 +34,16 @@ class FLACClockTestCase: XCTestCase {
     /// measured bound: 500 ms caught the wrong start every run while it was a bug (2026-11-20).
     static let settle = Duration.milliseconds(500)
 
+    /// Once the current item is ready, the engine stays silent through `settle`: no rate, not shown
+    /// playing. `step` names what would have started it, for the failure message.
+    func assertStaysSilentOnceReady(after step: String, file: StaticString = #filePath, line: UInt = #line) async throws {
+        await waitUntil(10) { self.engine.player.currentItem?.status == .readyToPlay }
+        XCTAssertEqual(engine.player.currentItem?.status, .readyToPlay, "precondition: the item got ready", file: file, line: line)
+        try await Task.sleep(for: Self.settle)
+        XCTAssertEqual(engine.player.rate, 0, "playback started after \(step)", file: file, line: line)
+        XCTAssertFalse(engine.isPlaying, "shown playing after \(step)", file: file, line: line)
+    }
+
     /// The engine playing the fixture (or `url`) from the top.
     func playing(_ url: URL? = nil) async {
         engine.load(url: url ?? server.url, autoplay: true)

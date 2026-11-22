@@ -192,7 +192,7 @@ extension PlaybackEngine {
             // An engine the user wants playing waits for the new item, even one the failing stream
             // left paused (not .paused: the pause below is the swap, not the user's); one the user
             // or the OS stopped stays as it is.
-            if wantsPlayback, !isInterrupted, status != .blocked { status = .loading }
+            if userWantsItRunning { status = .loading }
             player.pause()
         }
     }
@@ -202,7 +202,7 @@ extension PlaybackEngine {
         let myGen = retireItem()
         // Shown playing and really running (or held through a skip just before): not stopped by
         // the OS ahead of its KVO.
-        let wasRunning = isPlaying && wantsPlayback && !isInterrupted && status.isRunning
+        let wasRunning = isPlaying && userWantsItRunning && status.isRunning
             && (player.rate != 0 || flacSeek.holdsPlaying)
         prepare()
         flacSeek.holdsPlaying = wasRunning

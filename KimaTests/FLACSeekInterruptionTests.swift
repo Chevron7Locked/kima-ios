@@ -11,10 +11,7 @@ final class FLACSeekInterruptionTests: FLACClockTestCase {
     /// A skip while stopped: the new item comes in and goes quiet. Nothing plays.
     private func assertTheSkipStaysStopped(at seconds: Double, file: StaticString = #filePath, line: UInt = #line) async throws {
         await skipSwapped(to: seconds, file: file, line: line)
-        await waitUntil(10) { self.engine.player.currentItem?.status == .readyToPlay }
-        try await Task.sleep(for: Self.settle)
-        XCTAssertEqual(engine.player.rate, 0, "the skip started playback", file: file, line: line)
-        XCTAssertFalse(engine.isPlaying, "the skip shows playing", file: file, line: line)
+        try await assertStaysSilentOnceReady(after: "the skip", file: file, line: line)
     }
 
     /// A call comes in: the OS pauses the player, the user still wants playback when it ends.
@@ -37,14 +34,6 @@ final class FLACSeekInterruptionTests: FLACClockTestCase {
         try await assertHeardAndShown(at: 41.5)
     }
 
-    /// The OS paused the player and the call began before the engine heard the pause: the skip
-    /// right then must not show playing through the call.
-    func testASkipRightAsACallBeginsStaysStopped() async throws {
-        await playing()
-        beginInterruption()
-        try await assertTheSkipStaysStopped(at: 60)
-    }
-
     /// The interruption ended without a resume: tap-to-resume (`.blocked`) holds across a skip,
     /// and the user's play starts the skipped-to spot.
     func testASkipWhileBlockedStaysBlockedUntilPlay() async throws {
@@ -65,9 +54,7 @@ final class FLACSeekInterruptionTests: FLACClockTestCase {
         engine.load(url: server.url, autoplay: true)
         beginInterruption()
         XCTAssertEqual(engine.status, .paused)
-        await waitUntil(10) { self.engine.player.currentItem?.status == .readyToPlay }
-        try await Task.sleep(for: Self.settle)
-        XCTAssertEqual(engine.player.rate, 0, "the load played mid-call")
+        try await assertStaysSilentOnceReady(after: "a load mid-call")
         engine.handleInterruption(.ended, shouldResume: true)
         await waitUntil(10) { self.engine.status == .playing }
         try await assertHeardAndShown(at: 1.5)

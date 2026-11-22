@@ -89,6 +89,10 @@ extension PlaybackEngine {
         handleInterruption(type, shouldResume: AVAudioSession.InterruptionOptions(rawValue: optionsRaw).contains(.shouldResume))
     }
 
+    /// The user wants it running and the OS hasn't stopped it: no call in progress, and not left
+    /// at tap-to-resume (`.blocked`) by one. `isWaitingForAudio` reads the status instead.
+    var userWantsItRunning: Bool { wantsPlayback && !isInterrupted && status != .blocked }
+
     /// `.began`: the OS pauses the player; the user's intent (`wantsPlayback`) is left as it was.
     /// `.ended`: if the user still wants playback of a loaded item, resume when iOS allows it
     /// (re-claiming the session), else show tap-to-resume

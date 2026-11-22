@@ -259,9 +259,9 @@ extension PlaybackEngine {
 
     /// Runs the player for the user: their play, or a call that ends with a resume. A stopped engine
     /// waits for audio from here (`.buffering`, and the stall watchdog armed); its KVO won't say so.
-    /// The `.buffering` write is the one the waiting KVO made before ticket 27, a moment earlier: its
-    /// readers (the transport and audible state the views, clip previews and CarPlay read, the
-    /// long-form speed and autoplay checks, the watchdog) see it as the play they asked for.
+    /// Readers of the `.buffering` write: the controller's transport and audible state (the player
+    /// views, clip previews, CarPlay), the long-form speed and autoplay checks, and the watchdog.
+    /// Each reads it as a play in flight, which it is; `pause()` undoes it if no KVO comes first.
     func runPlayer() {
         if status.isPausedOrBlocked { status = .buffering }
         player.play()

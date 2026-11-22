@@ -273,6 +273,8 @@ final class PlaybackEngine {
     func pause() {
         wantsPlayback = false
         endSwapHold()
+        // A pause before the play is reported gets no KVO to undo `runPlayer`'s buffering.
+        if status == .buffering { status = .paused }
         player.pause()
         updateStallWatchdog()
     }

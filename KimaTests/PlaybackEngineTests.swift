@@ -64,6 +64,20 @@ final class PlaybackEngineTests: XCTestCase {
         XCTAssertEqual(stalls, 0)
     }
 
+    /// Play then pause before the player reports anything: no time-control KVO follows to take
+    /// the engine out of the buffering the play set, so the pause does. Left buffering, the engine
+    /// would look like it wants audio: the stall watchdog and a long-form speed write read that.
+    func testAPauseBeforeThePlayIsReportedLeavesItPaused() {
+        for stopped in [EngineStatus.paused, .blocked] {
+            let e = engine()
+            e.status = stopped
+            e.play()
+            e.pause()
+            XCTAssertEqual(e.status, .paused, "from \(stopped)")
+            XCTAssertFalse(e.isWaitingForAudio, "from \(stopped)")
+        }
+    }
+
     func testALoadThatNeverStartsCountsOnlyWithAutoplay() async throws {
         let e = engine()
         var stalls = 0

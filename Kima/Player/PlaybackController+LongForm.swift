@@ -149,13 +149,13 @@ extension PlaybackController {
         finishedLongFormId = nil   // seeking in a finished book or episode means listening again
         switch playbackType {
         case .audiobook:
-            guard let (load, session) = updateBook({ $0.load(at: seconds) }) else { return }
-            if load.isSameFile {
-                engine.seek(to: load.fileTime)
+            guard let (target, session) = updateBook({ $0.markLoaded(at: seconds) }) else { return }
+            if target.isSameFile {
+                engine.seek(to: target.fileTime)
             } else {
                 // Cross-file seek — reload the new file at its time.
                 let shouldAutoplay = engine.isPlaying || engine.status == .buffering
-                loadBookFile(load.file, of: session, autoplay: shouldAutoplay, seekTo: { load.fileTime })
+                loadBookFile(target.file, of: session, autoplay: shouldAutoplay, seekTo: { target.fileTime })
             }
         case .podcastEpisode:
             engine.seek(to: seconds)

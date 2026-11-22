@@ -8,7 +8,7 @@ import Foundation
 
 /// Where a book time lands: its file, the time within that file, and whether that file was the
 /// one already loaded (a seek within it, rather than a new stream).
-struct BookLoad: Sendable {
+struct BookSeekTarget: Sendable {
     let file: AudiobookTrack
     let fileTime: Double
     let isSameFile: Bool
@@ -33,7 +33,10 @@ struct BookSession: Sendable {
     // MARK: - The loaded file
 
     /// The file loaded in the engine; nil before the first load.
-    var loadedFile: AudiobookTrack? { files.first { $0.index == loadedFileIndex } }
+    var loadedFile: AudiobookTrack? { loadedPosition.map { files[$0] } }
+
+    /// Where the loaded file sits in `files`; nil before the first load.
+    private var loadedPosition: Int? { files.firstIndex { $0.index == loadedFileIndex } }
 
     /// The engine's time in the loaded file, as seconds into the book. With no file loaded the
     /// engine's time stands.
@@ -41,21 +44,19 @@ struct BookSession: Sendable {
         (loadedFile?.startOffset ?? 0) + engineTime
     }
 
-    /// Load the file `bookTime` falls in (clamped to the book). The returned value says whether
-    /// that file was already loaded.
+    /// Mark the file `bookTime` falls in (clamped to the book) as loaded; the caller streams it.
+    /// The returned target says where in that file to start and whether it was already loaded.
     @discardableResult
-    mutating func load(at bookTime: Double) -> BookLoad {
+    mutating func markLoaded(at bookTime: Double) -> BookSeekTarget {
         let (file, fileTime) = locate(bookTime: bookTime)
         let isSameFile = file.index == loadedFileIndex
         loadedFileIndex = file.index
-        return BookLoad(file: file, fileTime: fileTime, isSameFile: isSameFile)
+        return BookSeekTarget(file: file, fileTime: fileTime, isSameFile: isSameFile)
     }
 
     /// The file after the loaded one; nil when the loaded file is the last (or none is loaded).
     var fileAfterLoaded: AudiobookTrack? {
-        guard let i = files.firstIndex(where: { $0.index == loadedFileIndex }),
-              files.indices.contains(i + 1)
-        else { return nil }
+        guard let i = loadedPosition, files.indices.contains(i + 1) else { return nil }
         return files[i + 1]
     }
 

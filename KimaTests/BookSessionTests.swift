@@ -20,48 +20,48 @@ final class BookSessionTests: XCTestCase {
 
     func testLoadingABookTimeLoadsItsFileAtTheTimeWithinIt() {
         var s = book
-        let load = s.load(at: 130)
-        XCTAssertEqual(load.file.index, 2)
-        XCTAssertEqual(load.fileTime, 30)
-        XCTAssertFalse(load.isSameFile, "nothing was loaded before")
+        let target = s.markLoaded(at: 130)
+        XCTAssertEqual(target.file.index, 2)
+        XCTAssertEqual(target.fileTime, 30)
+        XCTAssertFalse(target.isSameFile, "nothing was loaded before")
         XCTAssertEqual(s.loadedFile?.index, 2)
     }
 
     func testLoadingWithinTheLoadedFileSaysSo() {
         var s = book
-        s.load(at: 130)
-        let load = s.load(at: 240)
-        XCTAssertEqual(load.file.index, 2)
-        XCTAssertEqual(load.fileTime, 140)
-        XCTAssertTrue(load.isSameFile)
+        s.markLoaded(at: 130)
+        let target = s.markLoaded(at: 240)
+        XCTAssertEqual(target.file.index, 2)
+        XCTAssertEqual(target.fileTime, 140)
+        XCTAssertTrue(target.isSameFile)
     }
 
     func testLoadingAnotherFileMovesTheCursor() {
         var s = book
-        s.load(at: 130)
-        let load = s.load(at: 260)
-        XCTAssertFalse(load.isSameFile)
+        s.markLoaded(at: 130)
+        let target = s.markLoaded(at: 260)
+        XCTAssertFalse(target.isSameFile)
         XCTAssertEqual(s.loadedFile?.index, 3)
     }
 
     func testABookTimePastEitherEndIsClamped() {
         var s = book
-        XCTAssertEqual(s.load(at: -5).fileTime, 0)
+        XCTAssertEqual(s.markLoaded(at: -5).fileTime, 0)
         XCTAssertEqual(s.loadedFile?.index, 1)
-        let end = s.load(at: 999)
+        let end = s.markLoaded(at: 999)
         XCTAssertEqual(end.file.index, 3)
         XCTAssertEqual(end.fileTime, 50)
     }
 
     func testTheEnginesTimeIsReadAgainstTheLoadedFile() {
         var s = book
-        s.load(at: 260)
+        s.markLoaded(at: 260)
         XCTAssertEqual(s.bookTime(engineTime: 20), 270)
     }
 
     func testAdvancingLoadsTheNextFileAndStopsAfterTheLast() {
         var s = book
-        s.load(at: 50)
+        s.markLoaded(at: 50)
         XCTAssertEqual(s.fileAfterLoaded?.index, 2)
         XCTAssertEqual(s.advanceFile()?.index, 2)
         XCTAssertEqual(s.loadedFile?.index, 2)

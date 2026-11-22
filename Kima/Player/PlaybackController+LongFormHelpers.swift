@@ -47,9 +47,10 @@ extension PlaybackController {
     /// Run `change` on the playing audiobook's session and return its value with the session after
     /// it. Nil when no audiobook is playing. The loaded file is the session's one mutable state, so
     /// `playbackType` is written back only when it moved: a seek within the file leaves the observed
-    /// value alone, while a file change re-notifies its readers (CarPlay's `configure` re-runs,
-    /// idempotent, as it does on every podcast episode change).
-    @discardableResult
+    /// value alone, while a file change re-notifies every reader. Each player view, the regular
+    /// now-playing bar, the podcast rows, `IssueReportSheet` and `CarPlayHome` re-evaluate a cheap
+    /// body, and `CarPlayNowPlaying` re-runs its idempotent `configure`, once per file change, as
+    /// they do on every podcast episode change.
     func updateBook<Value>(_ change: (inout BookSession) -> Value) -> (value: Value, session: BookSession)? {
         guard case .audiobook(var session) = playbackType else { return nil }
         let before = session.loadedFileIndex
@@ -82,11 +83,11 @@ extension PlaybackController {
     func loadBookPosition(bookTime: @escaping @MainActor () -> Double, autoplay: Bool,
                           prepare: (@MainActor () async -> Void)? = nil) {
         // The session's loaded file moves here, before the async hop: the file in flight is the loaded one.
-        guard let (load, session) = updateBook({ $0.load(at: bookTime()) }) else { return }
-        let file = load.file
-        let seekTo: @MainActor () -> Double? = load.isSameFile
+        guard let (target, session) = updateBook({ $0.markLoaded(at: bookTime()) }) else { return }
+        let file = target.file
+        let seekTo: @MainActor () -> Double? = target.isSameFile
             ? { session.fileTime(bookTime: bookTime(), in: file) }
-            : { load.fileTime }
+            : { target.fileTime }
         loadBookFile(file, of: session, autoplay: autoplay, seekTo: seekTo, prepare: prepare)
     }
 

@@ -116,6 +116,20 @@ final class PlaybackRecoveryTests: XCTestCase {
         XCTAssertEqual(c.recoveryPoint, 155, "file 2 starts at 100; the resume seek never landed")
     }
 
+    /// A track whose load (asked to start at 50) failed before ready, then the user skips: the
+    /// rebuild starts at the skip, not the old resume. The top too, though the engine's 0 reads as
+    /// "never played" and falls back to the last known position.
+    func testASkipOnAFailedTrackIsWhereItsRebuildStarts() {
+        let c = controller()
+        c.lastKnownMusicPosition = 50   // the failed load's start
+        c.engine.pendingSeek = 50
+        c.engine.status = .error
+        c.seek(to: 40)
+        XCTAssertEqual(c.recoveryPoint, 40)
+        c.seek(to: 0)
+        XCTAssertEqual(c.recoveryPoint, 0, "the skip to the top, not the failed load's 50")
+    }
+
     func testRepeatedStallsStopWithThePlaceKept() async throws {
         let c = controller()
         c.apiClient = .stubbed()

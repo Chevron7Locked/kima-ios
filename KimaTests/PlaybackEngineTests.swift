@@ -173,18 +173,6 @@ final class PlaybackEngineTests: XCTestCase {
         XCTAssertEqual(e.status, .loading)
     }
 
-    /// A load asked to start at 50 failed before ready; the user then skips to 40. The rebuild
-    /// (`recoveryPoint`: `pendingSeek ?? currentTime`) must start at the skip, not the old resume.
-    func testASkipOnAFailedTrackIsWhereItsRebuildStarts() {
-        let e = engine()
-        e.pendingSeek = 50
-        e.status = .error
-        e.seek(to: 40)
-        XCTAssertEqual(e.pendingSeek ?? e.currentTime, 40)
-        e.seek(to: 0)
-        XCTAssertEqual(e.pendingSeek ?? e.currentTime, 0)
-    }
-
     func testPausedResumeSeekLandsPausedAtTheTarget() {
         let e = engine()
         e.wantsPlayback = false

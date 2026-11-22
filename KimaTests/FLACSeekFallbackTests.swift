@@ -60,6 +60,27 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         try await assertTheSkipFallsBackToTheWholeTrack()
     }
 
+    /// The swap's held playing ends when no sound ever comes: the restarted stream and the whole
+    /// track both stop sending. The hold is buffering to the engine, so the stall watchdog bounds it
+    /// (one window for the restart, one for the fallback); then the track goes to the ladder, stopped.
+    func testTheSwapsHeldPlayingEndsWhenTheSkipNeverPlays() async throws {
+        try await playingWithTheRestartAt60(.hang)
+        engine.stallLimit = .seconds(1)
+        var stalls = 0
+        engine.onStalled = { stalls += 1 }
+        server.delay = { _ in 30 }   // the whole track's reads hang too (past the test; teardown doesn't wait on them)
+        await skipSwapped(to: 60)
+        XCTAssertTrue(engine.isPlaying, "precondition: the skip shows playing")
+        await waitUntil(3) { !self.engine.isRestartedStream }
+        XCTAssertFalse(engine.isRestartedStream, "the restart's stall fell back to the whole track")
+        XCTAssertTrue(engine.isPlaying, "the hold dropped before the fallback had its chance")
+        // One more 1 s stall window, then the give-up; 3 s leaves room for the main-actor hops under load.
+        await waitUntil(3) { !self.engine.isPlaying }
+        XCTAssertFalse(engine.isPlaying, "still shown playing with no sound")
+        XCTAssertEqual(engine.status, .error)
+        XCTAssertEqual(stalls, 1, "the dead track reaches the recovery ladder once")
+    }
+
     /// Paused, the skip's failed stream falls back quietly: nothing plays until the user's play.
     func testAFallBackWhilePausedStaysPaused() async throws {
         try await playingWithTheRestartAt60(.refuse)

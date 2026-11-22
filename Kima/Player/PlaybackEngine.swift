@@ -267,8 +267,7 @@ final class PlaybackEngine {
         guard status != .idle, status != .error else { return }
         wantsPlayback = true
         isInterrupted = false
-        player.play()
-        updateStallWatchdog()
+        runPlayer()
     }
 
     func pause() {

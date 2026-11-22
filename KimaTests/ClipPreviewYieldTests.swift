@@ -51,8 +51,8 @@ final class ClipPreviewYieldTests: XCTestCase {
         XCTAssertFalse(c.engine.wantsPlayback, "starting a preview pauses audible main")
         c.engine.applyTimeControlStatus(.paused)      // the engine reports the pause, as KVO does
 
-        c.engine.wantsPlayback = true                 // the user resumes from the mini bar
-        c.engine.applyTimeControlStatus(.playing)
+        c.engine.play()                               // the user resumes from the mini bar
+        c.engine.applyTimeControlStatus(.playing)     // and the player reports it
         try await Task.sleep(for: .milliseconds(100))
 
         XCTAssertNil(previewer.previewingId)

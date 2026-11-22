@@ -51,6 +51,10 @@ extension PlaybackEngine {
         let holdsPlayingThroughSwap = flacSeek.holdsPlaying && wantsPlayback && prevIsPlaying
         switch tcs {
         case .playing:
+            // A paused or blocked engine plays only when the user runs it (`runPlayer`): playing
+            // reported while it's stopped is AVPlayer re-reporting an earlier play (ticket 27). Taking
+            // it would fire `onPlaying`, whose long-form speed write really starts the player.
+            if status.isPausedOrBlocked { break }
             // The swap is over once the new item plays; before it's ready the player can report a
             // moment of playing on the way to waiting. The item's own status, not its KVO, which
             // can land after this.
@@ -64,8 +68,10 @@ extension PlaybackEngine {
         case .waitingToPlayAtSpecifiedRate:
             // Avoid overwriting .loading — let item-status KVO advance us to .buffering
             // only once we have a confirmed item in flight. A paused or blocked engine buffers only
-            // once the player runs: right after an item swap it reports waiting with its rate at 0.
-            if status != .idle && status != .loading && !(status.isPausedOrBlocked && player.rate == 0) {
+            // when the user runs it (`runPlayer`), never on the player's word: right after an item
+            // swap it reports waiting at rate 0, and AVPlayer can re-report an earlier play's rate
+            // after a pause, so a KVO read then sees waiting at rate 1 (ticket 27).
+            if status != .idle && status != .loading && !status.isPausedOrBlocked {
                 status = .buffering
             }
             isPlaying = holdsPlayingThroughSwap
@@ -249,6 +255,17 @@ extension PlaybackEngine {
     /// swapped-in FLAC stream keeps the running rate (a long-form speed). A load stops the player first.
     func startIfStopped() {
         if player.rate == 0 { player.play() }
+    }
+
+    /// Runs the player for the user: their play, or a call that ends with a resume. A stopped engine
+    /// waits for audio from here (`.buffering`, and the stall watchdog armed); its KVO won't say so.
+    /// The `.buffering` write is the one the waiting KVO made before ticket 27, a moment earlier: its
+    /// readers (the transport and audible state the views, clip previews and CarPlay read, the
+    /// long-form speed and autoplay checks, the watchdog) see it as the play they asked for.
+    func runPlayer() {
+        if status.isPausedOrBlocked { status = .buffering }
+        player.play()
+        updateStallWatchdog()
     }
 
     #if DEBUG

@@ -115,7 +115,7 @@ extension PlaybackEngine {
             if shouldResume {
                 // KVO fires when playing starts and pushes the lock screen. A refused session
                 // has already shown its error.
-                if claimAudioSession() { player.play() }
+                if claimAudioSession() { runPlayer() }
             } else {
                 status    = .blocked
                 isPlaying = false

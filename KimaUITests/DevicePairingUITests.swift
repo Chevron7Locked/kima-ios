@@ -1,7 +1,8 @@
 import XCTest
 
 /// The link-a-device sheet from a kima://link URL and from the "scan qr code" button. No server needed:
-/// nothing here taps "link device". Run on a plain simulator that is signed out.
+/// nothing here taps "link device", so no login is written. Starts signed out (`launchIntoConnectScreen`)
+/// whatever the simulator holds.
 final class DevicePairingUITests: XCTestCase {
     private let app = XCUIApplication()
     private let ok = "kima://link?code=ABC234&server=https%3A%2F%2Fkima.example.com"

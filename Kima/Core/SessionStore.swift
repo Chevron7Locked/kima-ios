@@ -62,6 +62,14 @@ final class SessionStore {
             phase = .authenticated(host: "127.0.0.1:9")
             return
         }
+        // UI-test hook: open on the connect screen whatever the simulator remembers. Phase only:
+        // the stored server and Keychain credential stay as they are, so the next plain launch
+        // still reaches the real session. Unlike -kima-fake-signed-in it sets no
+        // ServerURLStore.debugOverride: nothing signed out reads ServerURLStore.current.
+        if CommandLine.arguments.contains("-kima-fake-signed-out") {
+            phase = .unauthenticated
+            return
+        }
         // Screenshot/verify hook for the unreachable gate without an actually-dead server.
         if CommandLine.arguments.contains("-kima-force-unreachable") {
             phase = .unreachable(host: ServerURLStore.current ?? "kima.example.com")

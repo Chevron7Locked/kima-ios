@@ -40,6 +40,15 @@ final class SessionStore {
     /// Cold-launch resume. If a stored server + credential exist, validate via GET /api/auth/me.
     func resume() async {
         #if DEBUG
+        // UI-test hook: open on the connect screen whatever the simulator remembers. Phase only:
+        // the stored server and Keychain credential stay as they are, so the next plain launch
+        // still reaches the real session. Unlike -kima-fake-signed-in it sets no
+        // ServerURLStore.debugOverride: nothing signed out reads ServerURLStore.current.
+        // First, ahead of the seeding below, so no other arg passed with it can write a login.
+        if CommandLine.arguments.contains("-kima-fake-signed-out") {
+            phase = .unauthenticated
+            return
+        }
         // Screenshot/verify hook: seed server + JWT from launch args so sweeps run
         // against a testbed without driving the sign-in form. App-process writes →
         // keychain lands in the app's own keychain (simctl-spawn writes would not).
@@ -60,14 +69,6 @@ final class SessionStore {
         if CommandLine.arguments.contains("-kima-fake-signed-in") {
             ServerURLStore.debugOverride = "http://127.0.0.1:9"
             phase = .authenticated(host: "127.0.0.1:9")
-            return
-        }
-        // UI-test hook: open on the connect screen whatever the simulator remembers. Phase only:
-        // the stored server and Keychain credential stay as they are, so the next plain launch
-        // still reaches the real session. Unlike -kima-fake-signed-in it sets no
-        // ServerURLStore.debugOverride: nothing signed out reads ServerURLStore.current.
-        if CommandLine.arguments.contains("-kima-fake-signed-out") {
-            phase = .unauthenticated
             return
         }
         // Screenshot/verify hook for the unreachable gate without an actually-dead server.

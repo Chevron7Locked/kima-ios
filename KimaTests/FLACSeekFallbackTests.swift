@@ -30,8 +30,8 @@ final class FLACSeekFallbackTests: FLACClockTestCase {
         XCTAssertGreaterThan(heard, 20, "played from the top after the skip: \(heard)", file: file, line: line)
     }
 
-    /// Skips to 60, whose restarted stream won't play: the whole track comes back near the skip,
-    /// playing, with no failure or stall reaching the recovery ladder.
+    /// Skips to 60, whose restarted stream won't play: the whole track comes back playing, past the
+    /// top, with no failure or stall reaching the recovery ladder.
     private func assertTheSkipFallsBackToTheWholeTrack(file: StaticString = #filePath, line: UInt = #line) async throws {
         var handedToTheLadder = 0
         engine.onFailed = { _ in handedToTheLadder += 1 }

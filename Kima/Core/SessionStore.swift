@@ -21,8 +21,14 @@ final class SessionStore {
     /// The factory every client this class builds gets its sessions from, so the launch resume
     /// classification (authenticated / needs sign-in / unreachable) is testable through that seam.
     private let sessions: any SessionFactory
+    /// The process arguments `resume()` reads its DEBUG launch hooks from: injected so unit tests
+    /// can prove the hooks and their order in process; the app passes the real ones.
+    private let launchArguments: [String]
 
-    init(sessions: any SessionFactory = .production) { self.sessions = sessions }
+    init(sessions: any SessionFactory = .production, launchArguments: [String] = CommandLine.arguments) {
+        self.sessions = sessions
+        self.launchArguments = launchArguments
+    }
 
     /// The only client this class builds, and the only way: every request it makes rides the
     /// injected factory, so no construction site can silently fall back to `.production`.
@@ -45,7 +51,7 @@ final class SessionStore {
         // still reaches the real session. Unlike -kima-fake-signed-in it sets no
         // ServerURLStore.debugOverride: nothing signed out reads ServerURLStore.current.
         // First, ahead of the seeding below, so no other arg passed with it can write a login.
-        if CommandLine.arguments.contains("-kima-fake-signed-out") {
+        if launchArguments.contains("-kima-fake-signed-out") {
             phase = .unauthenticated
             return
         }
@@ -53,26 +59,26 @@ final class SessionStore {
         // against a testbed without driving the sign-in form. App-process writes →
         // keychain lands in the app's own keychain (simctl-spawn writes would not).
         //   -kima-server http://host:3030 -kima-jwt <token>
-        if let i = CommandLine.arguments.firstIndex(of: "-kima-server"), i + 1 < CommandLine.arguments.count {
-            ServerURLStore.setStored(CommandLine.arguments[i + 1])
+        if let address = launchArgument(after: "-kima-server") {
+            ServerURLStore.setStored(address)
         }
-        if let j = CommandLine.arguments.firstIndex(of: "-kima-jwt"), j + 1 < CommandLine.arguments.count,
+        if let token = launchArgument(after: "-kima-jwt"),
            let seeded = ServerURLStore.current.flatMap(URL.init(string:)) {
             let server = KimaServer(baseURL: seeded)
-            KeychainStore.setCredential(CommandLine.arguments[j + 1], for: KeychainStore.accessToken, server: server)
+            KeychainStore.setCredential(token, for: KeychainStore.accessToken, server: server)
             KeychainStore.set(nil, for: KeychainStore.refreshToken) // absent → 401s propagate, no refresh loop
         }
         // UI-test hook: reach the signed-in shell with no credential or reachable server. The sink
         // address lives in this process only (ServerURLStore.debugOverride): written to
         // UserDefaults it became the stored server, and every later launch — every UI test that
         // wants the real session — landed on the Connect screen.
-        if CommandLine.arguments.contains("-kima-fake-signed-in") {
+        if launchArguments.contains("-kima-fake-signed-in") {
             ServerURLStore.debugOverride = "http://127.0.0.1:9"
             phase = .authenticated(host: "127.0.0.1:9")
             return
         }
         // Screenshot/verify hook for the unreachable gate without an actually-dead server.
-        if CommandLine.arguments.contains("-kima-force-unreachable") {
+        if launchArguments.contains("-kima-force-unreachable") {
             phase = .unreachable(host: ServerURLStore.current ?? "kima.example.com")
             return
         }
@@ -117,6 +123,15 @@ final class SessionStore {
                                  ?? "the server answered with an error.")
         }
     }
+
+    #if DEBUG
+    /// The launch argument right after `flag` (`-kima-server <address>`), or nil when the flag is
+    /// absent or last.
+    private func launchArgument(after flag: String) -> String? {
+        guard let i = launchArguments.firstIndex(of: flag), i + 1 < launchArguments.count else { return nil }
+        return launchArguments[i + 1]
+    }
+    #endif
 
     /// Called by the connect flow after a successful sign-in / pairing (credential already persisted).
     func didAuthenticate() {

@@ -8,7 +8,9 @@
 # state mid-TDD) comes back as it was.
 # Exit: 0 killed (an XCTest assertion failed under the mutant), 1 survived (still green),
 #       2 no verdict (usage, <old> not matched once, or a red without a test failure: a build
-#       error or a simulator refusal, which proves nothing about the test).
+#       error or a simulator refusal, which proves nothing about the test),
+#       3 killed by crash (no assertion failed, but the mutant crashed the test host, traced by
+#       test.sh from a macOS crash report on the run's simulator: a red, though not an assertion's).
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 2
 
@@ -53,6 +55,12 @@ fi
 if grep -qE ':[0-9]+: error: -\[' build/last-test.log; then
     echo "KILLED: an assertion failed under the mutant (lines above)"
     exit 0
+fi
+# A crash test.sh traced to this run's simulator (scripts/crash-report.py): the mutant was caught,
+# by a trap rather than an assertion.
+if grep -q '^KIMA-CRASH: ' build/last-test.log; then
+    echo "KILLED BY CRASH: the mutant crashed the test host (crash line above), no assertion failed" >&2
+    exit 3
 fi
 echo "NO VERDICT: red without a test failure (test.sh exit $ec; build error or simulator?): build/last-test.log" >&2
 exit 2

@@ -49,6 +49,9 @@ if [ "$*" = "-only-testing:KimaTests" ]; then
     tested_tree=$(scripts/kimatests-green.sh fingerprint) || tested_tree=""
 fi
 xcodegen generate >/dev/null || { echo "xcodegen generate failed" >&2; exit 2; }
+# Run start, for scripts/crash-report.py: only crash reports newer than this are this run's.
+since=$(mktemp "${TMPDIR:-/tmp}/kima-test-since.XXXXXX") || exit 2
+trap 'rm -f "$since"' EXIT
 
 # The transcript goes to $LOG, never stdout: a full run is ~100KB, and an agent that pipes
 # that away to save context loses the exit code with it. Green prints one count line;
@@ -79,15 +82,26 @@ grep -E '^[[:space:]]*([^[:space:]]+:[0-9]+(:[0-9]+)?: error: |(clang|xcodebuild
 if grep -qE "failed preflight checks|Simulator device failed to launch" "$LOG"; then
     echo "hint: simulator refused the launch (often 'Busy' after an earlier hung run): xcrun simctl shutdown $UDID 2>/dev/null; xcrun simctl bootstatus $UDID -b, then rerun" >&2
 fi
+crashes=""
 if grep -q "Restarting after unexpected exit, crash, or test timeout" "$LOG"; then
     echo "hint: the runner restarted mid-run — classes before that marker may not have rerun; the blamed test hung or crashed rather than failed" >&2
+    # The log never says why; macOS's crash report does. KIMA-CRASH: lines in $LOG are
+    # scripts/mutant.sh's crash verdict.
+    crashes=$(python3 -I scripts/crash-report.py "$since" "$UDID")
+    if [ -n "$crashes" ]; then
+        printf '%s\n' "$crashes" >&2
+        printf 'KIMA-CRASH: %s\n' "$crashes" >>"$LOG"
+    fi
 fi
 # A test that started and never printed a result is the hang itself (key on the quoted
 # identifier: the class-space-method name means $3 alone is shared across a whole class).
 # Unanchored: a stub's stderr can land mid-line ahead of "Test Case '…' passed".
 hung=$(awk '/Test Case \047/ { id = $0; sub(/^.*Test Case \047/, "", id); sub(/\047.*$/, "", id)
      if ($0 ~ /started\./) t[id] = 1; else delete t[id] } END { for (n in t) print "  " n }' "$LOG")
-if [ -n "$hung" ]; then
+if [ -n "$hung" ] && [ -n "$crashes" ]; then
+    echo "no result ever printed for these — the crash above ended the run:" >&2
+    printf '%s\n' "$hung" >&2
+elif [ -n "$hung" ]; then
     echo "hint: no result ever printed for these — an unbounded wait hung the runner (polling waits ride waitUntil, KimaTests/Support):" >&2
     printf '%s\n' "$hung" >&2
 fi
